@@ -1,0 +1,54 @@
+Type: Package
+Package: dynConfiRIDP
+Title: Dynamic Models for Confidence and Response Time Distributions
+Version: 1.0.1
+Authors@R: c(
+    person("Sebastian", "Hellmann", , "sebastian.hellmann@ku.de", role = c("aut", "cre"),
+           comment = c(ORCID = "0000-0002-3621-6343")),
+    person("Manuel", "Rausch", , "manuel.rausch@ku.de", role = c("aut", "fnd"),
+           comment = c(ORCID = "0000-0002-5805-5544"))
+  )
+Maintainer: Sebastian Hellmann <sebastian.hellmann@ku.de>
+Description: Provides density functions for the joint distribution of
+    choice, response time and confidence for discrete confidence judgments
+    as well as functions for parameter fitting, prediction and simulation
+    for various dynamical models of decision confidence.  All models are
+    explained in detail by Hellmann et al.  (2023;
+    Preprint available at <https://osf.io/9jfqr/>, published version: <doi:10.1037/rev0000411>).  Implemented models are the dynaViTE model, 
+    dynWEV model, the 2DSD model (Pleskac & Busemeyer, 2010, <doi:10.1037/a0019737>),
+    and various race models.  C++ code for dynWEV and 2DSD is based on the
+    'rtdists' package by Henrik Singmann.
+License: GPL (>= 3)
+URL: https://github.com/SeHellmann/dynConfiR_idp,
+    https://sehellmann.github.io/dynConfiR_idp/
+BugReports: https://github.com/SeHellmann/dynConfiR_idp
+Depends: 
+    R (>= 4.0)
+Imports: 
+    dplyr,
+    magrittr,
+    minqa,
+    parallel,
+    progress,
+    Rcpp,
+    rlang,
+    stats
+Suggests: 
+    covr,
+    ggplot2,
+    Hmisc,
+    knitr,
+    logger,
+    rmarkdown,
+    tidyr
+LinkingTo: 
+    Rcpp
+VignetteBuilder: 
+    knitr
+Config/testthat/edition: 3
+Date/Publication: 2022-05-16
+Encoding: UTF-8
+LazyData: true
+NeedsCompilation: yes
+Roxygen: list(old_usage = TRUE, markdown=TRUE)
+RoxygenNote: 7.3.1
