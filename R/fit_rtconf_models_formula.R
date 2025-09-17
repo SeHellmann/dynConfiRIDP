@@ -1,3 +1,4 @@
+#' @export
 fit_rtconf_models_formula <- function(
   data,
   models = c("dynaViTE", "PCRMt", "IRMt"),
@@ -101,7 +102,7 @@ fit_rtconf_models_formula <- function(
       parallel = parallel_subject,
       n_cores = n_cores_subject
     )
-    # not completely sure about this yet
+    # not completely sure about the return yet
     res$model <- job$model
     res$sbj <- job$sbj
 

@@ -1,4 +1,6 @@
-#' @import assertthat
+#' @importFrom assertthat
+#'   assert_that
+#'   is.string
 #' @keywords internal
 #' @noRd
 validate_rtconf_args <- function(
@@ -92,11 +94,10 @@ validate_rtconf_args <- function(
   )
   # restr_tau
   assert_that(
-    is.numeric(restr_tau),
     length(restr_tau) == 1,
-    restr_tau > 0,
+    (is.numeric(restr_tau) && restr_tau > 0) || (is.string(restr_tau) && restr_tau == "simult_conf"),
     msg = sprintf(
-      "`restr_tau` must be a positive numeric scalar\nGot: %s",
+      "`restr_tau` must be a positive numeric scalar (or Inf), or the string 'simult_conf'\nGot: %s",
       describe(restr_tau)
     )
   )
@@ -307,6 +308,59 @@ validate_rtconf_models_args <- function(
       )
     )
   }
+}
+
+validate_input_data <- function(
+  rt,
+  rating,
+  response,
+  stimulus,
+  correct
+) {
+  # rt
+  assert_that(
+    is.numeric(rt),
+    rt > 0,
+    msg = sprintf(
+      "`rt` must be a positive numeric vector\nGot: %s",
+      describe(rt)
+    )
+  )
+  # rating
+  assert_that(
+    is.numeric(rating),
+    rating >= 0,
+    rating %% 1 == 0,
+    length(unique(rating)) >= 2,
+    msg = sprintf(
+      "`rating` must be a numeric integer vector >= 0 with at least 2 unique levels\nGot: %s",
+      describe(rating)
+    )
+  )
+  # response
+  assert_that(
+    is.null(response) || length(unique(response)) == 2,
+    msg = sprintf(
+      "`response` must have exactly 2 unique values\nGot: %s",
+      describe(response)
+    )
+  )
+  # stimulus
+  assert_that(
+    is.null(stimulus) || length(unique(stimulus)) == 2,
+    msg = sprintf(
+      "`stimulus` must have exactly 2 unique values\nGot: %s",
+      describe(stimulus)
+    )
+  )
+  # correct
+  assert_that(
+    is.null(correct) || all(correct %in% c(0, 1)),
+    msg = sprintf(
+      "`correct` must contain only 0 and 1 values\nGot: %s",
+      describe(correct)
+    )
+  )
 }
 
 describe <- function(x, max_lines = 5) {

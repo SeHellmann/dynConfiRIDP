@@ -1,84 +1,87 @@
 #' @keywords internal
 #' @noRd
-process_input_data <- function(
-  data,
-  fixed,
-  sym_thetas,
-  n_ratings
-) {
-  cols <- names(data)
+process_input_data <- function(context) {
+  cols <- names(context$data)
 
   has_rt <- "rt" %in% cols
   has_rating <- "rating" %in% cols
 
   has_response <- "response" %in% cols
-  has_correct <- "correct" %in% cols
   has_stimulus <- "stimulus" %in% cols
+  has_correct <- "correct" %in% cols
 
-  stopifnot(has_rt, "`data` must contain an `rt` column")
+  stopifnot(has_rt, "`data` must contain a `rt` column")
   stopifnot(has_rating, "`data` must contain a `rating` column")
-  # either 2 of stimulus - response - correct
-  # if all 3 => ignore correct
-  # stimulus c(-1, 1)
-  # response c("lower", "upper")
-  # correct c(0, 1)
-  # => better validation, clear dependent_vars data.frame spec
-  stopifnot(has_response || has_correct, "`data` must contain at least `response` or `correct`")
+  # if no response then both stimulus and correct or only correct (with warning)
+  stopifnot(has_response || has_correct, "`data` must contain at least `response` or `correct`" )
 
-  rt <- data[["rt"]]
-  rating <- data[["rating"]]
-  stimulus <- if (has_stimulus) data[["stimulus"]] else NULL
+  rt <- context$data[["rt"]]
+  rating <- context$data[["rating"]]
 
+  response <- if (has_response) context$data[["response"]] else NULL
+  stimulus <- if (has_stimulus) context$data[["stimulus"]] else NULL
+  correct <- if (has_correct) context$data[["correct"]] else NULL
+
+  validate_input_data(
+    rt,
+    rating,
+    response,
+    stimulus,
+    correct
+  )
+
+  # parse stimulus
+  if (has_stimulus) {
+    stimulus_levels <- sort(unique(stimulus))
+    stimulus <- ifelse(stimulus == stimulus_levels[1], -1, 1)
+  }
+
+  # infer response if needed and parse
   if (has_response) {
-    response <- data[["response"]]
+    response_levels <- sort(unique(response))
+    response <- ifelse(response == response_levels[1], -1, 1)
   } else if (has_correct) {
-    correct <- data[["correct"]]
     if (has_stimulus) {
-      stim_levels <- sort(unique(stimulus))
-      if (length(stim_levels) != 2) {
-        stop(sprintf(
-          "`stimulus` must have exactly 2 unique values, found: %s",
-          paste(stim_levels, collapse = ", ")
-        ))
-      }
-      stimulus <- ifelse(stimulus == stim_levels[1], -1, 1)
       response <- ifelse(stimulus * (-1)^correct == 1, -1, 1)
     } else {
-      is_z_fixed <- ("z" %in% names(fixed)) && (fixed[["z"]] == 0.5)
-      has_equal_bounds <- ("a" %in% names(fixed) && "b" %in% names(fixed) && (fixed[["a"]] == fixed[["b"]]))
-      if (!is_z_fixed && sym_thetas && !has_equal_bounds) {
+      # get response from correct
+      response <- ifelse(correct == 0, -1, 1)
+
+      is_z_fixed <- ("z" %in% names(context$fixed)) && (context$fixed[["z"]] == 0.5)
+      has_equal_bounds <- (
+        "a" %in% names(context$fixed) &&
+        "b" %in% names(context$fixed) &&
+        (context$fixed[["a"]] == context$fixed[["b"]])
+      )
+      if (!is_z_fixed && context$sym_thetas && !has_equal_bounds) {
         warning(
           "Only `correct` provided, no `stimulus`: bias cannot be estimated\n",
           "Recommended: fix `z = 0.5`, `sym_thetas = TRUE`, or make sure that `a` and `b` are equal"
         )
       }
-      response <- correct
     }
   }
 
-  # pretty sure it should be response == 1 here
-  response <- if (all(response %in% c(0, 1))) as.logical(response) else response == 1
+  if (any(rating == 0)) rating <- rating + 1
 
-  if (!is.integer(rating)) rating <- as.integer(as.factor(rating))
+  all_ratings <- min(rating):max(rating)
+  total_ratings <- length(all_ratings)
+  used_n_ratings <- length(unique(rating))
 
-  if (is.null(n_ratings)) n_ratings <- max(rating)
+  if (is.null(context$n_ratings)) context$n_ratings <- total_ratings
 
-  if (n_ratings < 2) {
-    stop(sprintf("There must be at least two unique rating levels\n`n_ratings`: %s", n_ratings))
-  }
-
-  if (any(rating == 0) && max(length(unique(rating)), max(rating) + 1 - min(rating)) == n_ratings) {
-    rating <- rating + 1
-  }
-
-  if (length(unique(rating)) < n_ratings) {
+  if (used_n_ratings < context$n_ratings) {
+    context$used_ratings <- sort(unique(rating))
+    context$initial_n_ratings <- context$n_ratings
     rating <- as.integer(as.factor(rating))
-    n_ratings <- length(unique(rating))
+    context$n_ratings <- used_n_ratings
   }
 
-  dependent_vars <- data.frame(rating = rating, response = response, rt = rt)
-  if (has_stimulus) dependent_vars$stimulus <- stimulus
+  context$dependent_vars <- data.frame(rt = rt, rating = rating, response = response)
+  if (has_stimulus) context$dependent_vars$stimulus <- stimulus
 
-  list(dependent_vars = dependent_vars, n_ratings = n_ratings)
+  context$maxt0 <- min(rt)
+
+  context
 }
 
