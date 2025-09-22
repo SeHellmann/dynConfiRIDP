@@ -1,5 +1,11 @@
 #' @keywords internal
-#' @noRd
+#' @importFrom stats
+#'   rnorm
+#' @importFrom parallel
+#'   makeCluster
+#'   stopCluster
+#'   clusterExport
+#'   parApply
 fitting_dynwev_formula <- function(context) {
   beta_names <- c(context$fit_beta_parnames, context$const_parnames, context$thetas_parnames)
   n_initials <- 100
@@ -9,11 +15,10 @@ fitting_dynwev_formula <- function(context) {
   if (!context$grid_search) inits <- colMeans(inits)
 
   #### setup cluster for parallelization ####
+  cl <- NULL
   if (context$parallel) {
-    cl <- makeCluster(type = "SOCK", context$n_cores)
+    cl <- makeCluster(context$n_cores, type = "PSOCK")
     on.exit(try(stopCluster(cl), silent = TRUE))
-
-    clusterExport(cl, c("context", "optim_node"), envir = environment())
   }
 
   #### grid search ####
@@ -116,7 +121,7 @@ fitting_dynwev_formula <- function(context) {
       sep = "=", collapse = ", "
     )
     res$negLogLik <- fit$value
-    res$BIC <- 2 * res$negLogLik + res$k + log(res$N)
+    res$BIC <- 2 * res$negLogLik + res$k * log(res$N)
     res$AIC <- 2 * res$negLogLik + 2 * res$k
     res$AICc <- res$AIC + (2 * res$k * (res$k + 1)) / (res$N - res$k - 1)
 

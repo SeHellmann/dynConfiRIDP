@@ -25,26 +25,18 @@ BugReports: https://github.com/SeHellmann/dynConfiR_idp
 Depends: 
     R (>= 4.0)
 Imports: 
-    dplyr,
-    magrittr,
-    minqa,
-    parallel,
-    progress,
     Rcpp,
-    rlang,
-    stats
+    parallel,
+    stats,
+    assertthat,
+    logger
 Suggests: 
-    covr,
     ggplot2,
     Hmisc,
-    knitr,
-    logger,
     rmarkdown,
     tidyr
 LinkingTo: 
     Rcpp
-VignetteBuilder: 
-    knitr
 Config/testthat/edition: 3
 Date/Publication: 2022-05-16
 Encoding: UTF-8

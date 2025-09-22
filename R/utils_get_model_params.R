@@ -1,5 +1,4 @@
 #' @keywords internal
-#' @noRd
 get_model_params <- function(context) {
   # Define necessary parameters for the model
   if (context$model %in% DYNWEV_MODELS) {
@@ -79,26 +78,6 @@ get_model_params <- function(context) {
   # Fill in default optimizer options if missing
   missing_opts <- !(names(DEFAULT_OPTS) %in% names(context$opts))
   context$opts <- c(context$opts, DEFAULT_OPTS[missing_opts])
-
-  # par_thetas
-  base_names <- if (context$sym_thetas) "theta" else c("thetaLower", "thetaUpper")
-  if (context$n_ratings <= 2) {
-    thetas_parnames <- base_names
-  } else {
-    first_thetas <- paste0(base_names, "1")
-    dtheta_indices <- 2:(context$n_ratings - 1)
-    dthetas <- if (context$sym_thetas) {
-      paste0("dtheta", dtheta_indices)
-    } else {
-      paste0(
-        "dtheta",
-        rep(c("Lower", "Upper"), times = context$n_ratings - 2),
-        rep(dtheta_indices, each = 2)
-      )
-    }
-    thetas_parnames <- c(first_thetas, dthetas)
-  }
-  context$thetas_parnames <- thetas_parnames
 
   # simult_conf and restr_tau
   context$simult_conf <- FALSE

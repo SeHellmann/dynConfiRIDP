@@ -1,5 +1,6 @@
 #' @keywords internal
-#' @noRd
+#' @importFrom stats
+#'   model.matrix
 build_model_matrix <- function(context) {
   # add constant columns for missing manipulated parameters
   for (p in context$manipulated_parnames) {
@@ -11,6 +12,8 @@ build_model_matrix <- function(context) {
   context$fit_params_cols <- list()
   context$fit_beta_parnames <- character()
   context$fit_parnames <- character()
+
+  browser()
 
   for (p in context$manipulated_parnames) {
     context$model_matrix <- model.matrix(context$manipulations[[p]], context$data)

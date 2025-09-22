@@ -1,5 +1,4 @@
 #' @keywords internal
-#' @noRd
 fill_thresholds <- function(
   beta,
   used_ratings,

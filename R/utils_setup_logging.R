@@ -7,7 +7,6 @@
 #'   log_success
 #'   DEBUG
 #' @keywords internal
-#' @noRd
 setup_logging <- function(context) {
   if (context$logging) {
     participant <- 999
@@ -25,16 +24,6 @@ setup_logging <- function(context) {
       if (length(unique_participants) == 1) {
         participant <- unique_participants[1]
       }
-    }
-
-    if (!requireNamespace("logger", quietly = TRUE)) {
-      warning(
-        "Package 'logger' is not installed but needed for logging.\n",
-        "Process continues without logging.\n",
-        "Interrupt and install 'logger' if logging is needed.",
-        immediate. = TRUE
-      )
-      return(invisible(NULL))
     }
 
     dir.create("autosave", showWarnings = FALSE)
@@ -59,7 +48,7 @@ setup_logging <- function(context) {
     logger::log_threshold(logger::DEBUG)
 
     context$logfile <- logfile
-
-    context
   }
+
+  context
 }

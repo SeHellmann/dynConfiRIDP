@@ -2,22 +2,21 @@
 #'   assert_that
 #'   is.string
 #' @keywords internal
-#' @noRd
 validate_rtconf_args <- function(
-    data,
-    model,
-    optim_method,
-    fixed,
-    manipulations,
-    n_ratings,
-    restr_tau,
-    sym_thetas,
-    precision,
-    opts,
-    grid_search,
-    logging,
-    parallel,
-    n_cores) {
+  data,
+  model,
+  optim_method,
+  fixed,
+  manipulations,
+  n_ratings,
+  restr_tau,
+  sym_thetas,
+  precision,
+  opts,
+  grid_search,
+  logging,
+  parallel,
+  n_cores) {
   # data
   assert_that(
     is.data.frame(data),
@@ -123,10 +122,9 @@ validate_rtconf_args <- function(
   # opts
   assert_that(
     is.list(opts),
-    !is.null(names(opts)),
-    all(names(opts) != ""),
+    length(opts) == 0 || (!is.null(names(opts)) && all(names(opts) != "")),
     msg = sprintf(
-      "`opts` must be a named list\nGot: %s",
+      "`opts` must be an empty list or a non-empty named list\nGot: %s",
       describe(opts)
     )
   )
@@ -172,6 +170,10 @@ validate_rtconf_args <- function(
   )
 }
 
+#' @importFrom assertthat
+#'   assert_that
+#'   is.string
+#' @keywords internal
 validate_rtconf_models_args <- function(
     models,
     optim_method,
@@ -310,17 +312,43 @@ validate_rtconf_models_args <- function(
   }
 }
 
+#' @importFrom assertthat
+#'   assert_that
+#' @keywords internal
 validate_input_data <- function(
+  cols,
   rt,
   rating,
   response,
   stimulus,
   correct
 ) {
+  # cols
+  assert_that(
+    "rt" %in% cols,
+    msg = sprintf(
+      "`data` must contain a `rt` column\nGot: %s",
+      describe(cols)
+    )
+  )
+  assert_that(
+    "rating" %in% cols,
+    msg = sprintf(
+      "`data` must contain a `rating column\nGot: %s",
+      describe(cols)
+    )
+  )
+  assert_that(
+    ("response" %in% cols) || ("correct" %in% cols),
+    msg = sprintf(
+      "`data` must contain at least `response` or `correct`\nGot: %s",
+      describe(cols)
+    )
+  )
   # rt
   assert_that(
     is.numeric(rt),
-    rt > 0,
+    all(rt > 0),
     msg = sprintf(
       "`rt` must be a positive numeric vector\nGot: %s",
       describe(rt)
@@ -329,8 +357,8 @@ validate_input_data <- function(
   # rating
   assert_that(
     is.numeric(rating),
-    rating >= 0,
-    rating %% 1 == 0,
+    all(rating >= 0),
+    all(rating %% 1 == 0),
     length(unique(rating)) >= 2,
     msg = sprintf(
       "`rating` must be a numeric integer vector >= 0 with at least 2 unique levels\nGot: %s",
@@ -363,6 +391,10 @@ validate_input_data <- function(
   )
 }
 
+#' @importFrom utils
+#'   capture.output
+#'   str
+#' @keywords internal
 describe <- function(x, max_lines = 5) {
   out <- capture.output(str(x))
   if (length(out) > max_lines) {

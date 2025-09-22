@@ -18,55 +18,40 @@ PARALLEL_MODES <- c("none", "subject", "model", "both")
 
 #' @keywords internal
 #' @noRd
-fit_context <- function(
-  data,
-  model,
-  optim_method,
-  fixed,
-  manipulations,
-  n_ratings,
-  restr_tau,
-  sym_thetas,
-  precision,
-  opts,
-  grid_search,
-  logging,
-  parallel,
-  n_cores
-) {
+fit_context <- function(args) {
   list(
     #### initial inputs
-    data = data,
-    model = model,
-    optim_method = optim_method,
-    fixed = fixed,
-    manipulations = manipulations,
-    n_ratings = n_ratings,
-    restr_tau = restr_tau,
-    sym_thetas = sym_thetas,
-    precision = precision,
-    opts = opts,
-    grid_search = grid_search,
-    logging = logging,
-    parallel = parallel,
-    n_cores = n_cores,
+    data = args$data,
+    model = args$model,
+    optim_method = args$optim_method,
+    fixed = args$fixed,
+    manipulations = args$manipulations,
+    n_ratings = args$n_ratings,
+    restr_tau = args$restr_tau,
+    sym_thetas = args$sym_thetas,
+    precision = args$precision,
+    opts = args$opts,
+    grid_search = args$grid_search,
+    logging = args$logging,
+    parallel = args$parallel,
+    n_cores = args$n_cores,
     #### placeholders for derived values
-    #### setup_logging()
+    #### setup_logging
     logfile = NULL,
-    #### get_model_params()
+    #### get_model_params
     model_type = NULL,
     parnames = NULL,
     fixed_parnames = NULL,
     manipulated_parnames = NULL,
     const_parnames = NULL,
-    thetas_parnames = NULL,
     simult_conf = NULL,
-    #### process_input_data()
+    #### process_input_data
     dependent_vars = NULL,
     initial_n_ratings = NULL,
     used_ratings = NULL,
     maxt0 = NULL,
-    #### build_model_matrix()
+    thetas_parnames = NULL,
+    #### build_model_matrix
     model_matrix = NULL,
     fit_params_cols = NULL,
     fit_beta_parnames = NULL,

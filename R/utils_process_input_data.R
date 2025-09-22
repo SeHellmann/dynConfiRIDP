@@ -1,28 +1,18 @@
+#' @importFrom assertthat
+#'   assert_that
 #' @keywords internal
-#' @noRd
 process_input_data <- function(context) {
   cols <- names(context$data)
-
-  has_rt <- "rt" %in% cols
-  has_rating <- "rating" %in% cols
-
-  has_response <- "response" %in% cols
-  has_stimulus <- "stimulus" %in% cols
-  has_correct <- "correct" %in% cols
-
-  stopifnot(has_rt, "`data` must contain a `rt` column")
-  stopifnot(has_rating, "`data` must contain a `rating` column")
-  # if no response then both stimulus and correct or only correct (with warning)
-  stopifnot(has_response || has_correct, "`data` must contain at least `response` or `correct`" )
 
   rt <- context$data[["rt"]]
   rating <- context$data[["rating"]]
 
-  response <- if (has_response) context$data[["response"]] else NULL
-  stimulus <- if (has_stimulus) context$data[["stimulus"]] else NULL
-  correct <- if (has_correct) context$data[["correct"]] else NULL
+  response <- context$data[["response"]]
+  stimulus <- context$data[["stimulus"]]
+  correct <- context$data[["correct"]]
 
   validate_input_data(
+    cols,
     rt,
     rating,
     response,
@@ -31,17 +21,18 @@ process_input_data <- function(context) {
   )
 
   # parse stimulus
-  if (has_stimulus) {
+  if (!is.null(stimulus)) {
     stimulus_levels <- sort(unique(stimulus))
     stimulus <- ifelse(stimulus == stimulus_levels[1], -1, 1)
   }
 
   # infer response if needed and parse
-  if (has_response) {
+  # if no response then both stimulus and correct or only correct (with warning)
+  if (!is.null(response)) {
     response_levels <- sort(unique(response))
     response <- ifelse(response == response_levels[1], -1, 1)
-  } else if (has_correct) {
-    if (has_stimulus) {
+  } else if (!is.null(correct)) {
+    if (!is.null(stimulus)) {
       response <- ifelse(stimulus * (-1)^correct == 1, -1, 1)
     } else {
       # get response from correct
@@ -78,10 +69,29 @@ process_input_data <- function(context) {
   }
 
   context$dependent_vars <- data.frame(rt = rt, rating = rating, response = response)
-  if (has_stimulus) context$dependent_vars$stimulus <- stimulus
+  if (!is.null(stimulus)) context$dependent_vars$stimulus <- stimulus
 
   context$maxt0 <- min(rt)
 
+  # thetas_parnames
+  base_names <- if (context$sym_thetas) "theta" else c("thetaLower", "thetaUpper")
+  if (context$n_ratings <= 2) {
+    thetas_parnames <- base_names
+  } else {
+    first_thetas <- paste0(base_names, "1")
+    dtheta_indices <- 2:(context$n_ratings - 1)
+    dthetas <- if (context$sym_thetas) {
+      paste0("dtheta", dtheta_indices)
+    } else {
+      paste0(
+        "dtheta",
+        rep(c("Lower", "Upper"), times = context$n_ratings - 2),
+        rep(dtheta_indices, each = 2)
+      )
+    }
+    thetas_parnames <- c(first_thetas, dthetas)
+  }
+  context$thetas_parnames <- thetas_parnames
+
   context
 }
-

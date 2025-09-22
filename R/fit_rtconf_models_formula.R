@@ -1,20 +1,25 @@
+#' @importFrom parallel
+#'   detectCores
+#'   makeCluster
+#'   stopCluster
+#'   clusterExport
+#'   clusterApplyLB
 #' @export
 fit_rtconf_models_formula <- function(
-  data,
-  models = c("dynaViTE", "PCRMt", "IRMt"),
-  optim_method = "Nelder-Mead",
-  fixed = list("s" = 1),
-  manipulations = list(),
-  n_ratings = NULL,
-  restr_tau = Inf,
-  sym_thetas = FALSE,
-  precision = 1e-5,
-  opts = list(),
-  grid_search = TRUE,
-  logging = FALSE,
-  parallel_mode = "none",
-  n_cores = NULL
-) {
+    data,
+    models = c("dynaViTE", "PCRMt", "IRMt"),
+    optim_method = "Nelder-Mead",
+    fixed = list("s" = 1),
+    manipulations = list(),
+    n_ratings = NULL,
+    restr_tau = Inf,
+    sym_thetas = FALSE,
+    precision = 1e-5,
+    opts = list(),
+    grid_search = TRUE,
+    logging = FALSE,
+    parallel_mode = "none",
+    n_cores = NULL) {
   validate_rtconf_models_args(
     models,
     optim_method,
@@ -49,7 +54,7 @@ fit_rtconf_models_formula <- function(
     },
     "model" = {
       parallel_model <- TRUE
-      n_cores_model <- if (is.null(n_cores))  min(detectCores() - 1, n_jobs) else n_cores
+      n_cores_model <- if (is.null(n_cores)) min(detectCores() - 1, n_jobs) else n_cores
     },
     "both" = {
       parallel_subject <- TRUE
@@ -84,7 +89,7 @@ fit_rtconf_models_formula <- function(
   }
 
   call_fitfct <- function(job) {
-    sbj_data <- subset(data, sbj == job$sbj)
+    sbj_data <- subset(data, data[["sbj"]] == job$sbj)
 
     res <- fit_rtconf_formula(
       data = sbj_data,
