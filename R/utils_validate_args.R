@@ -16,7 +16,8 @@ validate_rtconf_args <- function(
   grid_search,
   logging,
   parallel,
-  n_cores) {
+  n_cores
+) {
   # data
   assert_that(
     is.data.frame(data),
@@ -156,6 +157,32 @@ validate_rtconf_args <- function(
     )
   )
   # n_cores
+  if (parallel) {
+    assert_that(
+      !is.null(n_cores),
+      is.numeric(n_cores),
+      length(n_cores) == 1,
+      n_cores %% 1 == 0,
+      n_cores >= 1,
+      msg = sprintf(
+        "when `parallel` is TRUE, `n_cores` must be an integer >= 1\nGot: %s",
+        describe(n_cores)
+      )
+    )
+  } else {
+    assert_that(
+      is.null(n_cores) || (
+        is.numeric(n_cores) &&
+        length(n_cores) == 1 &&
+        n_cores %% 1 == 0 &&
+        n_cores >= 1
+      ),
+      msg = sprintf(
+        "`n_cores` must be NULL or an integer >= 1\nGot: %s",
+        describe(n_cores)
+      )
+    )
+  }
   assert_that(
     is.null(n_cores) || (
       is.numeric(n_cores) &&
@@ -284,32 +311,48 @@ validate_rtconf_models_args <- function(
     )
   )
   # n_cores
-  if (parallel_mode == "both") {
-    if (!is.null(n_cores)) {
+  switch(parallel_mode,
+    "both" = {
+      if (!is.null(n_cores)) {
+        assert_that(
+          is.numeric(n_cores),
+          length(n_cores) == 2,
+          all((n_cores %% 1 == 0) & (n_cores >= 1)),
+          msg = sprintf(
+            "when `parallel_mode` is \"both\", `n_cores` must be a numeric vector >= 1 of length 2\nGot: %s",
+            describe(n_cores)
+          )
+        )
+      }
+    },
+    "none" = {
       assert_that(
-        is.numeric(n_cores),
-        length(n_cores) == 2,
-        all((n_cores %% 1 == 0) & (n_cores >= 1)),
+        is.null(n_cores) || (
+          is.numeric(n_cores) &&
+          length(n_cores) == 1 &&
+          n_cores %% 1 == 0 &&
+          n_cores >= 1
+        ),
         msg = sprintf(
-          "when `parallel_mode` is \"both\" `n_cores` must be a numeric vector of length 2 with values >= 1\nGot: %s",
+          "`n_cores` must be NULL or an integer >= 1\nGot: %s",
+          describe(n_cores)
+        )
+      )
+    },
+    {
+      assert_that(
+        !is.null(n_cores),
+        is.numeric(n_cores),
+        length(n_cores) == 1,
+        n_cores %% 1 == 0,
+        n_cores >= 1,
+        msg = sprintf(
+          "when `parallel_mode` is \"subject\" or \"model\", `n_cores` must be an integer >= 1\nGot: %s",
           describe(n_cores)
         )
       )
     }
-  } else {
-    assert_that(
-      is.null(n_cores) || (
-        is.numeric(n_cores) &&
-        length(n_cores) == 1 &&
-        n_cores %% 1 == 0 &&
-        n_cores >= 1
-      ),
-      msg = sprintf(
-        "`n_cores` must be NULL or an integer >= 1\nGot: %s",
-        describe(n_cores)
-      )
-    )
-  }
+  )
 }
 
 #' @importFrom assertthat

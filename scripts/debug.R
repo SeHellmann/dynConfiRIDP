@@ -2,9 +2,10 @@ library(dplyr)
 
 devtools::load_all()
 
-SATdata <- SATdata %>% select(-RT2, -confidence)
-SATdata <- head(SATdata, 100)
+data <- SATdata %>% select(-RT2, -confidence)
+data <- head(data, 100)
 
 manipulations <- list(a ~ SAT, v ~ condition)
 
-fit_rtconf_formula(SATdata, manipulations = manipulations)
+res <- fit_rtconf_formula(data, manipulations = manipulations)
+print(res)

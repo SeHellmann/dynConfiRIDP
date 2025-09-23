@@ -7,34 +7,38 @@ build_model_matrix <- function(context) {
     if (!p %in% names(context$data)) context$data[[p]] <- 1
   }
 
-  # prepare output containers
-  model_matrix_list <- list()
-  context$fit_params_cols <- list()
-  context$fit_beta_parnames <- character()
-  context$fit_parnames <- character()
-
-  browser()
-
-  for (p in context$manipulated_parnames) {
-    context$model_matrix <- model.matrix(context$manipulations[[p]], context$data)
-    model_matrix_colnames <- colnames(context$model_matrix)
-
-    # save mapping of parameter to its columns
-    context$fit_params_cols[[p]] <- model_matrix_colnames
-
-    # build beta names
-    context$fit_beta_parnames <- c(context$fit_beta_parnames, paste(p, model_matrix_colnames, sep = "_"))
-    context$fit_parnames <- c(context$fit_parnames, rep(p, length(model_matrix_colnames)))
-
-    model_matrix_list[[length(model_matrix_list) + 1]] <- context$model_matrix
+  # exit early if there are no manipulations
+  if (length(context$manipulations) == 0) {
+    context$model_matrix <- matrix(nrow = nrow(context$data), ncol = 0)
+    context$beta_map <- setNames(integer(0), character(0))
+    return(context)
   }
 
-  # combine all unique columns once
-  all_cols <- do.call(cbind, model_matrix_list)
+  individual_matrices <- list()
+  all_predictor_names <- list()
+  all_beta_names <- list()
 
-  # remove duplicate columns if needed
-  unique_cols <- !duplicated(colnames(all_cols))
-  context$model_matrix <- all_cols[, unique_cols, drop = FALSE]
+  for (p in context$manipulated_parnames) {
+    mat <- model.matrix(context$manipulations[[p]], context$data)
+    mat_colnames <- colnames(mat)
+
+    individual_matrices[[p]] <- mat
+    all_predictor_names[[p]] <- mat_colnames
+    all_beta_names[[p]] <- paste(p, mat_colnames, sep = "_")
+  }
+
+  flat_predictors <- unlist(all_predictor_names)
+  flat_betas <- unlist(all_beta_names)
+
+  is_unique <- !duplicated(flat_predictors)
+  unique_predictors <- flat_predictors[is_unique]
+
+  full_model_matrix <- do.call(cbind, individual_matrices)
+  context$model_matrix <- full_model_matrix[, is_unique, drop = FALSE]
+
+  beta_map <- match(flat_predictors, unique_predictors)
+  names(beta_map) <- flat_betas
+  context$beta_map <- beta_map
 
   context
 }

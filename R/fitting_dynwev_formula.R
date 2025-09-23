@@ -5,25 +5,40 @@
 #'   makeCluster
 #'   stopCluster
 #'   clusterExport
-#'   parApply
+#'   parLapply
 fitting_dynwev_formula <- function(context) {
-  beta_names <- c(context$fit_beta_parnames, context$const_parnames, context$thetas_parnames)
-  n_initials <- 100
-  inits <- matrix(rnorm(n_initials * length(beta_names)), nrow = n_initials, dimnames = list(NULL, beta_names))
+  beta_names <- c(names(context$beta_map), context$const_parnames, context$thetas_parnames)
+
+  #### grid search setup ####
+  if (context$grid_search) {
+    n_initials <- 100
+    inits <- matrix(
+      rnorm(n_initials * length(beta_names)),
+      nrow = n_initials,
+      dimnames = list(NULL, beta_names)
+    )
+  } else {
+    single_start <- rnorm(length(beta_names), mean = 0, sd = 0.1)
+    inits <- matrix(
+      single_start,
+      nrow = 1,
+      dimnames = list(NULL, beta_names)
+    )
+  }
+
   # Rescale st0 initials to lower values, because integration would otherwise take a lot of time
   if ("st0" %in% beta_names) inits[, "st0"] <- inits[, "st0"] / 2 - 1.6
-  if (!context$grid_search) inits <- colMeans(inits)
 
-  #### setup cluster for parallelization ####
-  cl <- NULL
+  #### parallel cluster setup ####
   if (context$parallel) {
-    cl <- makeCluster(context$n_cores, type = "PSOCK")
+    cl <- makeCluster(context$n_cores, type = "SOCK")
     on.exit(try(stopCluster(cl), silent = TRUE))
+    clusterExport(cl, varlist = c("optim_node"))
   }
 
   #### grid search ####
   log_likelihood <- NULL
-  if (context$parallel) {
+  if (context$grid_search) {
     if (context$logging) {
       logger::log_info(sprintf(
         "%d parameter sets to check for %d rows of data",
@@ -33,12 +48,13 @@ fitting_dynwev_formula <- function(context) {
       logger::log_info("Searching initial values...")
       start_time <- Sys.time()
     }
+    inits_rows <- split(inits, seq_len(nrow(inits)))
 
-    # STUBS for neglikelihood_formula()
+    # STUBS for neglikelihood_formula
     log_likelihood <- if (context$parallel) {
-      parApply(cl, inits, MARGIN = 1, function() {})
+      parallel::parLapply(cl, inits_rows, function(row) runif(1))
     } else {
-      apply(inits, MARGIN = 1, function() {})
+      lapply(inits_rows, function(row) runif(1))
     }
 
     if (context$logging) {
@@ -49,60 +65,35 @@ fitting_dynwev_formula <- function(context) {
       save(log_likelihood, inits, context$dependent_vars, file = context$logfile)
     }
 
-    log_likelihood <- as.numeric(log_likelihood)
+    log_likelihood <- vapply(log_likelihood, identity, numeric(1))
     inits <- inits[order(log_likelihood), ]
   }
 
   #### optimization ####
   if (context$logging) logger::log_info("Start fitting...")
 
-  fit <- NULL
-  if (!context$parallel || (context$opts$n_attempts == 1)) {
-    for (i in seq_len(context$opts$n_attempts)) {
-      start <- inits[i, ]
-      for (j in seq_len(context$opts$n_restarts)) {
-        # jitter start
-        start <- start + rnorm(length(start), sd = pmax(0.001, abs(start / 20)))
-        # STUB for nlopt rcpp export
-        m <- tryCatch(function() {}, error = function(e) NULL)
+  starts <- inits[seq_len(context$opts$n_attempts), , drop = FALSE]
+  starts_rows <- split(starts, seq_len(nrow(starts)))
 
-        if (!is.null(m) && (is.null(fit) || m$value < fit$value)) {
-          fit <- m
-          if (context$logging) {
-            logger::log_info(sprintf("New best fit at attempt %d, restart %d", i, j))
-            save(log_likelihood, inits, context$dependent_vars, fit, file = context$logfile)
-          }
-        }
-        if (!is.null(fit)) start <- fit$par
-      }
-    }
+  optim_outs <- if (context$parallel && context$opts$n_attempts > 1) {
+    parallel::parLapply(
+      cl,
+      starts_rows,
+      function(start_params) optim_node(start_params, n_restarts = context$opts$n_restarts)
+    )
   } else {
-    starts <- inits[seq_len(context$opts$n_attempts), , drop = FALSE]
+    lapply(
+      starts_rows,
+      function(start_params) optim_node(start_params, n_restarts = context$opts$n_restarts)
+    )
+  }
 
-    optim_node <- function(start_params) {
-      node_fit <- NULL
-      for (j in seq_len(context$opts$n_restarts)) {
-        # jitter start
-        start_params <- start_params + rnorm(length(start_params), sd = pmax(0.001, abs(start_params / 20)))
-        # STUB for nlopt rcpp export
-        m <- tryCatch(function() {}, error = function(e) NULL)
+  values <- vapply(optim_outs, function(x) x$value, numeric(1))
+  best_idx <- which.min(values)
+  fit <- if (length(best_idx) == 0) NULL else optim_outs[[best_idx]]
 
-        if (!is.null(m) && (is.null(node_fit) || m$value < node_fit$value)) {
-          node_fit <- m
-        }
-        if (!is.null(node_fit)) start_params <- node_fit$par
-      }
-      if (is.null(node_fit)) c(NA, rep(NA, length(start_params))) else c(node_fit$value, node_fit$par)
-    }
-
-    optim_outs <- parApply(cl, starts, MARGIN = 1, optim_node)
-    stopCluster(cl)
-
+  if (context$logging) {
     save(log_likelihood, context$dependent_vars, inits, optim_outs, file = context$logfile)
-
-    optim_outs <- t(optim_outs)
-    best_res <- optim_outs[which.min(optim_outs[, 1]), ]
-    fit <- list(par = best_res[-1], value = best_res[1])
   }
 
   #### wrap up results ####
@@ -129,7 +120,38 @@ fitting_dynwev_formula <- function(context) {
       logger::log_success("Done fitting and autosaved results")
       save(log_likelihood, context$dependent_vars, context$model_matrix, fit, inits, res, file = context$logfile)
     }
+  } else {
+    if (context$logging) {
+      logger::log_warn("No valid fit could be obtained, all optimization attempts returned NA")
+    } else {
+      warning("No valid fit could be obtained, all optimization attempts returned NA")
+    }
   }
 
   res
+}
+
+#' @keywords internal
+optim_node <- function(start_params, n_restarts) {
+  node_fit <- NULL
+  for (j in seq_len(n_restarts)) {
+    # jitter start
+    start_params <- start_params + rnorm(length(start_params), sd = pmax(0.001, abs(start_params / 20)))
+    # STUB for nlopt rcpp export
+    m <- tryCatch({
+      list(value = runif(1), par = start_params)
+    }, error = function(e) NULL)
+
+    if (!is.null(m) && (is.null(node_fit) || m$value < node_fit$value)) {
+      node_fit <- m
+    }
+
+    if (!is.null(node_fit)) start_params <- node_fit$par
+  }
+
+  if (is.null(node_fit)) {
+    list(value = NA_real_, par = rep(NA_real_, length(start_params)))
+  } else {
+    node_fit
+  }
 }

@@ -6,20 +6,21 @@
 #'   clusterApplyLB
 #' @export
 fit_rtconf_models_formula <- function(
-    data,
-    models = c("dynaViTE", "PCRMt", "IRMt"),
-    optim_method = "Nelder-Mead",
-    fixed = list("s" = 1),
-    manipulations = list(),
-    n_ratings = NULL,
-    restr_tau = Inf,
-    sym_thetas = FALSE,
-    precision = 1e-5,
-    opts = list(),
-    grid_search = TRUE,
-    logging = FALSE,
-    parallel_mode = "none",
-    n_cores = NULL) {
+  data,
+  models = c("dynaViTE", "PCRMt", "IRMt"),
+  optim_method = "Nelder-Mead",
+  fixed = list("s" = 1),
+  manipulations = list(),
+  n_ratings = NULL,
+  restr_tau = Inf,
+  sym_thetas = FALSE,
+  precision = 1e-5,
+  opts = list(),
+  grid_search = TRUE,
+  logging = FALSE,
+  parallel_mode = "none",
+  n_cores = NULL
+) {
   validate_rtconf_models_args(
     models,
     optim_method,

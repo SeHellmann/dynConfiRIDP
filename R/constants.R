@@ -53,9 +53,7 @@ fit_context <- function(args) {
     thetas_parnames = NULL,
     #### build_model_matrix
     model_matrix = NULL,
-    fit_params_cols = NULL,
-    fit_beta_parnames = NULL,
-    fit_parnames = NULL
+    beta_map = NULL
   )
 }
 

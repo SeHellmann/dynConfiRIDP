@@ -26,6 +26,7 @@ fit_rtconf_formula <- function(
     build_model_matrix()
 
   browser()
+
   return(switch(context$model_type,
     "dynWEV" = fitting_dynwev_formula(context),
     "RM" = stop(sprintf("Model: %s not yet implemented", context$model)),
