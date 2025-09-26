@@ -48,7 +48,7 @@ fitting_dynwev_formula <- function(context) {
       logger::log_info("Searching initial values...")
       start_time <- Sys.time()
     }
-    inits_rows <- split(inits, seq_len(nrow(inits)))
+    inits_rows <- lapply(seq_len(nrow(inits)), function(i) inits[i, ])
 
     # STUBS for neglikelihood_formula
     log_likelihood <- if (context$parallel) {
@@ -73,7 +73,7 @@ fitting_dynwev_formula <- function(context) {
   if (context$logging) logger::log_info("Start fitting...")
 
   starts <- inits[seq_len(context$opts$n_attempts), , drop = FALSE]
-  starts_rows <- split(starts, seq_len(nrow(starts)))
+  starts_rows <- lapply(seq_len(nrow(starts)), function(i) starts[i, ])
 
   optim_outs <- if (context$parallel && context$opts$n_attempts > 1) {
     parallel::parLapply(
@@ -150,7 +150,10 @@ optim_node <- function(start_params, n_restarts) {
   }
 
   if (is.null(node_fit)) {
-    list(value = NA_real_, par = rep(NA_real_, length(start_params)))
+    list(
+      value = NA_real_,
+      par = setNames(rep(NA_real_, length(start_params)), names(start_params))
+    )
   } else {
     node_fit
   }

@@ -183,18 +183,6 @@ validate_rtconf_args <- function(
       )
     )
   }
-  assert_that(
-    is.null(n_cores) || (
-      is.numeric(n_cores) &&
-      length(n_cores) == 1 &&
-      n_cores %% 1 == 0 &&
-      n_cores >= 1
-    ),
-    msg = sprintf(
-      "`n_cores` must be NULL or an integer >= 1\nGot: %s",
-      describe(n_cores)
-    )
-  )
 }
 
 #' @importFrom assertthat

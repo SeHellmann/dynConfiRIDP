@@ -7,7 +7,7 @@ fill_thresholds <- function(
   min_conf = -1e+24,
   max_conf = 1e+24
 ) {
-  original_beta <- beta[!grepl("^theta", names(beta))]
+  original_beta <- beta[!grepl("^(d)?theta", names(beta))]
 
   if (sym_thetas) {
     thetas <- fill_single_theta_set(beta, "theta", used_ratings, initial_n_ratings, min_conf, max_conf)
@@ -32,22 +32,23 @@ fill_single_theta_set <- function(
   max_conf
 ) {
   n_thetas <- initial_n_ratings - 1
-  full_thetas <- rep(NA, n_thetas)
-  names(full_thetas) <- paste0(theta_prefix, 1:n_thetas)
+  full_thetas <- setNames(rep(NA_real_, n_thetas), paste0(theta_prefix, 1:n_thetas))
 
   fitted_theta_names <- grep(pattern = paste0("^", theta_prefix, "[0-9]"), names(beta), value = TRUE)
-  used_theta_names <- paste0(theta_prefix, used_ratings[used_ratings < initial_n_ratings])
+  used_theta_indices <- used_ratings[used_ratings < initial_n_ratings]
+  used_theta_names <- paste0(theta_prefix, used_theta_indices)
   full_thetas[used_theta_names] <- beta[fitted_theta_names]
 
-  if (min(used_ratings) > 1) {
-    unused_low_names <- paste0(theta_prefix, 1:(min(used_ratings) - 1))
-    fill_value <- min(min_conf, min(full_thetas, na.rm = TRUE))
-    full_thetas[unused_low_names] <- fill_value
+  min_used <- min(used_ratings)
+  if (min_used > 1) {
+    low_indices <- seq_len(min_used - 1)
+    full_thetas[low_indices] <- min_conf
   }
-  if (max(used_ratings) < initial_n_ratings) {
-    unused_high_names <- paste0(theta_prefix, max(used_ratings):n_thetas)
-    fill_value <- max(max_conf, max(full_thetas, na.rm = TRUE))
-    full_thetas[unused_high_names] <- fill_value
+
+  max_used <- max(used_ratings)
+  if (max_used < initial_n_ratings && max_used <= n_thetas) {
+    high_indices <- max_used:n_thetas
+    full_thetas[high_indices] <- max_conf
   }
 
   for (i in seq_along(full_thetas)) {

@@ -30,7 +30,8 @@ fit_rtconf_models_formula <- function(
   )
 
   ### Determine number of jobs, i.e. model-participant-combinations
-  sbjcol <- c("subject", "participant", "sbj")[which(c("subject", "participant", "sbj") %in% names(data))]
+  potential_sbj_cols <- c("subject", "participant", "sbj")
+  sbjcol <- potential_sbj_cols[match(TRUE, potential_sbj_cols %in% names(data))]
   if (length(sbjcol) == 0) {
     data$sbj <- 999
     sbjcol <- "sbj"
@@ -117,7 +118,7 @@ fit_rtconf_models_formula <- function(
 
   if (parallel_model) {
     clmodels <- makeCluster(type = "SOCK", n_cores_model)
-    clusterExport(clmodels, c(
+    vars_to_export <- c(
       "data",
       "optim_method",
       "fixed",
@@ -130,8 +131,9 @@ fit_rtconf_models_formula <- function(
       "logging",
       "parallel_subject",
       "n_cores_subject",
-      "call_fitfct"
-    ), envir = environment())
+      "fit_rtconf_formula"
+    )
+    clusterExport(clmodels, varlist = vars_to_export, envir = environment())
     on.exit(try(stopCluster(clmodels), silent = TRUE))
     res <- clusterApplyLB(clmodels, jobs_list, fun = call_fitfct)
     stopCluster(clmodels)

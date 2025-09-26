@@ -10,14 +10,9 @@
 setup_logging <- function(context) {
   if (context$logging) {
     participant <- 999
-    cols <- names(context$data)
-    if ("sbj" %in% cols) {
-      sbjcol <- "sbj"
-    } else if ("participant" %in% cols) {
-      sbjcol <- "participant"
-    } else {
-      sbjcol <- NULL
-    }
+    potential_sbj_cols <- c("sbj", "participation", "subject")
+    sbjcol <- potential_sbj_cols[match(TRUE, potential_sbj_cols %in% names(context$data))]
+    if (is.na(sbjcol)) sbjcol <- NULL
 
     if (!is.null(sbjcol)) {
       unique_participants <- unique(context$data[[sbjcol]])
@@ -26,11 +21,11 @@ setup_logging <- function(context) {
       }
     }
 
-    dir.create("autosave", showWarnings = FALSE)
-    logdir <- file.path("autosave", paste0("fit", context$model))
+    logdir <- file.path(tempdir(), paste0("rtconf_fits"))
     dir.create(logdir, showWarnings = FALSE)
 
-    logfile <- file.path(logdir, paste0("logging_", context$model, ".txt"))
+    unique_id <- format(Sys.time(), "%Y%m%d_%H%M%S")
+    logfile <- file.path(logdir, paste0("log_", context$model, "_", unique_id, ".txt"))
 
     log_layout <- logger::layout_glue_generator(
       format = paste(
@@ -46,6 +41,7 @@ setup_logging <- function(context) {
     logger::log_appender(logger::appender_file(file = logfile), index = 2)
     logger::log_threshold(logger::DEBUG, index = 2)
     logger::log_threshold(logger::DEBUG)
+    logger::log_info(sprintf("Logging to file: %s", logfile))
 
     context$logfile <- logfile
   }
