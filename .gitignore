@@ -5,6 +5,8 @@
 .Rhistory
 .RData
 .Ruserdata
+.clangd
+.cleanup
 src/*.o
 src/*.so
 src/*.dll

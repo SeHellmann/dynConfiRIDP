@@ -14,12 +14,8 @@
  *
  */
 
-#ifndef DENSITY_IRM_H
-#define DENSITY_IRM_H
-
-using namespace Rcpp;
-
-#define EPSILON 1e-6
+#pragma once
+#include "common.h"
 
 // Forward declarations
 
@@ -65,7 +61,7 @@ NumericVector density_IRM (NumericVector rts, NumericVector params, int win=1, d
 
     int nsteps;
     double dt;
-    if (st0 < EPSILON) {
+    if (st0 < constants::EPSILON) {
         st0 = 0;
     }
     if (st0 == 0) {

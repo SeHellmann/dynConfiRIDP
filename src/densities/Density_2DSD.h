@@ -14,12 +14,8 @@
  *
  */
 
-#ifndef DENSITY_2DSD_H
-#define DENSITY_2DSD_H
-
-using namespace Rcpp;
-
-#define EPSILON 1e-6
+#pragma once
+#include "common.h"
 
 // Forward declarations
 double g_minus_2DSD (double t, NumericVector params);
@@ -161,7 +157,7 @@ static double integral_v_g_minus_2DSD (double t, double zr, NumericVector params
     //
     //
 
-    eps = EPSILON / factor;
+    eps = constants::EPSILON / factor;
 
 
     N_large = (int)ceil(1 / (M_PI*sqrt(t)));
@@ -213,7 +209,7 @@ static double g_minus_no_var_2DSD(double t, double a, double zr, double v,
       return 0;
     }    */
 
-    eps = EPSILON / factor;
+    eps = constants::EPSILON / factor;
 
     N_large = (int)ceil (1/ (M_PI*sqrt(t)));
     if (M_PI*ta*eps < 1)
@@ -278,7 +274,7 @@ static double integrate_z_over_t_2DSD (NumericVector params, double a, double b,
 {
     double width = b-a;
     int N = std::max(4, (int) (width / step_width));
-    double step = width / N; // std::max(width / N, EPSILON);
+    double step = width / N; // std::max(width / N, constants::EPSILON);
     double x;
     double result = 0;
 
@@ -293,7 +289,7 @@ static double integrate_v_over_zr_2DSD (NumericVector params, double a, double b
 {
     double width = b-a;
     int N = std::max(4, (int) (width / step_width));
-    double step = width / N; // std::max(width / N, EPSILON);
+    double step = width / N; // std::max(width / N, constants::EPSILON);
     double x;
     double result = 0;
 

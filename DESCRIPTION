@@ -26,6 +26,8 @@ Depends:
     R (>= 4.0)
 Imports: 
     Rcpp,
+    RcppArmadillo,
+    nloptr (>= 1.2.0)
     parallel,
     stats,
     assertthat,
@@ -36,7 +38,9 @@ Suggests:
     rmarkdown,
     tidyr
 LinkingTo: 
-    Rcpp
+    Rcpp,
+    RcppArmadillo,
+    nloptr (>= 1.2.0)
 Config/testthat/edition: 3
 Date/Publication: 2022-05-16
 Encoding: UTF-8

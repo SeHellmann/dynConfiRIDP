@@ -14,10 +14,7 @@
  *
  */
 
-#ifndef RNG_WEV_H
-#define RNG_WEV_H
-
-using namespace Rcpp;
+#pragma once
 
 NumericMatrix RNG_WEV (int n, NumericVector params, double delta=0.01,
                      double maxT=9, bool stop_on_error=true)

@@ -14,12 +14,8 @@
  *
  */
 
-#ifndef DENSITY_WEVmu_H
-#define DENSITY_WEVmu_H
-
-using namespace Rcpp;
-
-#define EPSILON 1e-6
+#pragma once
+#include "common.h"
 
 // Forward declarations
 
@@ -179,7 +175,7 @@ static double integral_v_g_minus_WEVmu (double t, double zr, NumericVector param
     }
 
     // Approximate the series in the function f:
-    eps = EPSILON / factor;
+    eps = constants::EPSILON / factor;
 
 
     N_large = (int)ceil(1 / (M_PI*sqrt(t)));
@@ -245,7 +241,7 @@ static double integrate_z_over_t_WEVmu (NumericVector params, double a, double b
 {
     double width = b-a;
     int N = std::max(4, (int) (width / step_width));
-    double step = std::max(width / N, EPSILON);
+    double step = std::max(width / N, constants::EPSILON);
     double x;
     double result = 0;
 
@@ -260,7 +256,7 @@ static double integrate_v_over_zr_WEVmu (NumericVector params, double a, double 
 {
     double width = b-a;
     int N = std::max(4, (int) (width / step_width));
-    double step = std::max(width / N, EPSILON);
+    double step = std::max(width / N, constants::EPSILON);
     double x;
     double result = 0;
 
