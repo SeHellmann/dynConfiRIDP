@@ -1,4 +1,4 @@
-#include "ValidateParameters.h"
+#include "validate_parameters.h"
 
 #define CHECK_PARAM(cond, paramName, value, message)                           \
   if (!(cond)) {                                                               \

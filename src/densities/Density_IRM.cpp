@@ -14,7 +14,7 @@
  *
  */
 
-#include "Density_IRM.h"
+#include "density_IRM.h"
 #include "common.h"
 
 namespace {

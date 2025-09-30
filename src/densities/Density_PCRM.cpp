@@ -15,7 +15,7 @@
  *
  */
 
-#include "Density_PCRM.h"
+#include "density_PCRM.h"
 #include "common.h"
 
 namespace {

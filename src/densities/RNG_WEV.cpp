@@ -14,7 +14,7 @@
  *
  */
 
-#include "RNG_WEV.h"
+#include "rng_WEV.h"
 
 Rcpp::NumericMatrix RNG_WEV(int n, Rcpp::NumericVector params, double delta,
                             double maxT, bool stop_on_error) {

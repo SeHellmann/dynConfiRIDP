@@ -14,7 +14,7 @@
  *
  */
 
-#include "Density_2DSD.h"
+#include "density_2DSD.h"
 #include "common.h"
 
 namespace {

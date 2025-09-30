@@ -20,3 +20,5 @@
 Rcpp::NumericVector density_WEVmu(Rcpp::NumericVector rts,
                                   Rcpp::NumericVector params, int boundary,
                                   int stopon0);
+
+double g_minus_WEVmu(double t, Rcpp::NumericVector params);

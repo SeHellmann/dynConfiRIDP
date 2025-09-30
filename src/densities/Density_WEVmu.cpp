@@ -14,14 +14,13 @@
  *
  */
 
-#include "Density_WEVmu.h"
+#include "density_WEVmu.h"
 #include "common.h"
 
 namespace {
 // forward declarations function
 double density_WEVmu2(double rt, Rcpp::NumericVector params, int boundary,
                       int stopon0);
-double g_minus_WEVmu(double t, Rcpp::NumericVector params);
 
 double integral_t0_g_minus_WEVmu(double t, Rcpp::NumericVector params);
 double integral_z_g_minus_WEVmu(double t, Rcpp::NumericVector params);
@@ -46,10 +45,6 @@ double density_WEVmu2(double rt, Rcpp::NumericVector params, int boundary,
     params[3] = -params[3];    // d  -> - d
   } // Calc upper
   return -g_minus_WEVmu(rt, params); // Calc lower
-}
-
-double g_minus_WEVmu(double t, Rcpp::NumericVector params) {
-  return integral_t0_g_minus_WEVmu(t - params[2] - 0.5 * params[3], params);
 }
 
 double integral_t0_g_minus_WEVmu(double t, Rcpp::NumericVector params) {
@@ -255,4 +250,8 @@ Rcpp::NumericVector density_WEVmu(Rcpp::NumericVector rts,
     } // Calc lower
   }
   return out;
+}
+
+double g_minus_WEVmu(double t, Rcpp::NumericVector params) {
+  return integral_t0_g_minus_WEVmu(t - params[2] - 0.5 * params[3], params);
 }
