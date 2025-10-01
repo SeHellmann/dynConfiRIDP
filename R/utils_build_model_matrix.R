@@ -1,6 +1,7 @@
 #' @keywords internal
 #' @importFrom stats
 #'   model.matrix
+#'   setNames
 build_model_matrix <- function(context) {
   # add constant columns for missing manipulated parameters
   for (p in context$manipulated_parnames) {
@@ -11,6 +12,7 @@ build_model_matrix <- function(context) {
   if (length(context$manipulations) == 0) {
     context$model_matrix <- matrix(nrow = nrow(context$data), ncol = 0)
     context$beta_map <- setNames(integer(0), character(0))
+    context$beta_names <- c(context$const_parnames, context$thetas_parnames)
     return(context)
   }
 
@@ -36,9 +38,10 @@ build_model_matrix <- function(context) {
   full_model_matrix <- do.call(cbind, individual_matrices)
   context$model_matrix <- full_model_matrix[, is_unique, drop = FALSE]
 
-  beta_map <- match(flat_predictors, unique_predictors)
-  names(beta_map) <- flat_betas
-  context$beta_map <- beta_map
+  beta_map_indices <- match(flat_predictors, unique_predictors)
+  context$beta_map <- split(beta_map_indices, flat_betas)
+
+  context$beta_names <- c(unique(flat_betas), context$const_parnames, context$thetas_parnames)
 
   context
 }

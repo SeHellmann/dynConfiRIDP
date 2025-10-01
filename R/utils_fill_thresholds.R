@@ -22,6 +22,8 @@ fill_thresholds <- function(
 }
 
 #' @keywords internal
+#' @importFrom stats
+#'   setNames
 #' @noRd
 fill_single_theta_set <- function(
   beta,

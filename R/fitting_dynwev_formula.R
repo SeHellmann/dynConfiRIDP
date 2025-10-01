@@ -1,39 +1,38 @@
 #' @keywords internal
 #' @importFrom stats
 #'   rnorm
+#'   setNames
 #' @importFrom parallel
 #'   makeCluster
 #'   stopCluster
 #'   clusterExport
 #'   parLapply
 fitting_dynwev_formula <- function(context) {
-  beta_names <- c(names(context$beta_map), context$const_parnames, context$thetas_parnames)
-
   #### grid search setup ####
   if (context$grid_search) {
     n_initials <- 100
     inits <- matrix(
-      rnorm(n_initials * length(beta_names)),
+      rnorm(n_initials * length(context$beta_names)),
       nrow = n_initials,
-      dimnames = list(NULL, beta_names)
+      dimnames = list(NULL, context$beta_names)
     )
   } else {
-    single_start <- rnorm(length(beta_names), mean = 0, sd = 0.1)
+    single_start <- rnorm(length(context$beta_names), mean = 0, sd = 0.1)
     inits <- matrix(
       single_start,
       nrow = 1,
-      dimnames = list(NULL, beta_names)
+      dimnames = list(NULL, context$beta_names)
     )
   }
 
   # Rescale st0 initials to lower values, because integration would otherwise take a lot of time
-  if ("st0" %in% beta_names) inits[, "st0"] <- inits[, "st0"] / 2 - 1.6
+  if ("st0" %in% context$beta_names) inits[, "st0"] <- inits[, "st0"] / 2 - 1.6
 
   #### parallel cluster setup ####
   if (context$parallel) {
     cl <- makeCluster(context$n_cores, type = "SOCK")
     on.exit(try(stopCluster(cl), silent = TRUE))
-    clusterExport(cl, varlist = c("optim_node"))
+    clusterExport(cl, varlist = c("context"), envir = environment())
   }
 
   #### grid search ####
@@ -50,11 +49,10 @@ fitting_dynwev_formula <- function(context) {
     }
     inits_rows <- lapply(seq_len(nrow(inits)), function(i) inits[i, ])
 
-    # STUBS for neglikelihood_formula
     log_likelihood <- if (context$parallel) {
-      parallel::parLapply(cl, inits_rows, function(row) runif(1))
+      parallel::parLapply(cl, inits_rows, function(row) grid_search_worker(context, row))
     } else {
-      lapply(inits_rows, function(row) runif(1))
+      lapply(inits_rows, function(row) grid_search_worker(context, row))
     }
 
     if (context$logging) {
@@ -76,15 +74,16 @@ fitting_dynwev_formula <- function(context) {
   starts_rows <- lapply(seq_len(nrow(starts)), function(i) starts[i, ])
 
   optim_outs <- if (context$parallel && context$opts$n_attempts > 1) {
+    clusterExport(cl, varlist = c("optim_node"), envir = environment())
     parallel::parLapply(
       cl,
       starts_rows,
-      function(start_params) optim_node(start_params, n_restarts = context$opts$n_restarts)
+      function(start_params) optim_node(context, start_params)
     )
   } else {
     lapply(
       starts_rows,
-      function(start_params) optim_node(start_params, n_restarts = context$opts$n_restarts)
+      function(start_params) optim_node(context, start_params)
     )
   }
 
@@ -132,15 +131,18 @@ fitting_dynwev_formula <- function(context) {
 }
 
 #' @keywords internal
-optim_node <- function(start_params, n_restarts) {
+optim_node <- function(context, start_params) {
   node_fit <- NULL
-  for (j in seq_len(n_restarts)) {
+  for (j in seq_len(context$n_restarts)) {
     # jitter start
     start_params <- start_params + rnorm(length(start_params), sd = pmax(0.001, abs(start_params / 20)))
     # STUB for nlopt rcpp export
     m <- tryCatch({
-      list(value = runif(1), par = start_params)
-    }, error = function(e) NULL)
+      nlopt_optimizer(context, start_params)
+    }, error = function(e) {
+      if (context$logging) logger::log_error(paste("Optimization failed:", e$message))
+      NULL
+    })
 
     if (!is.null(m) && (is.null(node_fit) || m$value < node_fit$value)) {
       node_fit <- m

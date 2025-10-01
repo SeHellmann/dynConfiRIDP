@@ -1,10 +1,11 @@
+#' @export
+#' @useDynLib dynConfiRIDP, .registration = TRUE
 #' @importFrom parallel
 #'   detectCores
 #'   makeCluster
 #'   stopCluster
 #'   clusterExport
 #'   clusterApplyLB
-#' @export
 fit_rtconf_models_formula <- function(
   data,
   models = c("dynaViTE", "PCRMt", "IRMt"),

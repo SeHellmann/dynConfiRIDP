@@ -27,7 +27,7 @@ Depends:
 Imports: 
     Rcpp,
     RcppArmadillo,
-    nloptr (>= 1.2.0)
+    nloptr (>= 1.2.0),
     parallel,
     stats,
     assertthat,

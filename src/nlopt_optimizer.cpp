@@ -1,14 +1,12 @@
 // [[Rcpp::depends(RcppArmadillo)]]
 #include <RcppArmadillo.h>
+#include <nloptrAPI.h>
 #include <cmath>
 #include <cstddef>
 #include <limits>
-#include <nloptrAPI.h>
 #include <Rcpp.h>
 #include <vector>
-#include "nlopt_optimizer.h"
 #include "densities/density_WEVmu.h"
-#include "armadillo"
 
 struct ObjectiveData {
     arma::mat dependent_vars;
@@ -281,4 +279,73 @@ double neg_loglikelihood_formula(
     if (!std::isfinite(total_logl)) return 1e12;
 
     return -total_logl;
+}
+
+ObjectiveData pack_objective_data(const Rcpp::List& context) {
+    ObjectiveData objective_data;
+    objective_data.dependent_vars = Rcpp::as<arma::mat>(context["dependent_vars"]);
+    objective_data.model_matrix = Rcpp::as<arma::mat>(context["model_matrix"]);
+    objective_data.beta_map = Rcpp::as<Rcpp::List>(context["beta_map"]);
+    objective_data.fixed = Rcpp::as<Rcpp::List>(context["fixed"]);
+    objective_data.beta_names = Rcpp::as<Rcpp::CharacterVector>(context["beta_names"]);
+    objective_data.maxt0 = Rcpp::as<double>(context["maxt0"]);
+    objective_data.restr_tau = Rcpp::as<double>(context["restr_tau"]);
+    objective_data.precision = Rcpp::as<double>(context["precision"]);
+    objective_data.n_ratings = Rcpp::as<int>(context["n_ratings"]);
+    objective_data.simult_conf = Rcpp::as<bool>(context["simult_conf"]);
+    objective_data.sym_thetas = Rcpp::as<bool>(context["sym_thetas"]);
+    return objective_data;
+}
+
+// [[Rcpp::export]]
+Rcpp::List nlopt_optimizer(const Rcpp::List& context, Rcpp::NumericVector start_params) {
+    ObjectiveData objective_data = pack_objective_data(context);
+
+    unsigned n_params = start_params.size();
+    nlopt_opt opt;
+
+    std::string optim_method = Rcpp::as<std::string>(context["optim_method"]);
+    if (optim_method == "Nelder-Mead") {
+        opt = nlopt_create(NLOPT_LN_NELDERMEAD, n_params);
+    } else if (optim_method == "bobyqa") {
+        opt = nlopt_create(NLOPT_LN_BOBYQA, n_params);
+    } else {
+        // should not happen, already validated in utils_validate_args.R
+        Rcpp::stop("Unsupported optimization method provided.");
+    }
+
+    nlopt_set_min_objective(opt, neg_loglikelihood_formula, &objective_data);
+    
+    Rcpp::List opts = Rcpp::as<Rcpp::List>(context["opts"]);
+    nlopt_set_xtol_rel(opt, Rcpp::as<double>(opts["reltol"]));
+    nlopt_set_maxeval(opt, Rcpp::as<int>(opts["maxfun"]));
+
+    std::vector<double> x = Rcpp::as<std::vector<double>>(start_params);
+    double minf;
+
+    nlopt_result result = nlopt_optimize(opt, x.data(), &minf);
+
+    nlopt_destroy(opt);
+
+    if (result < 0) {
+        Rcpp::warning("NLopt failed with error code: %d", result);
+        return Rcpp::List::create(
+            Rcpp::Named("value") = NA_REAL,
+            Rcpp::Named("par") = Rcpp::NumericVector(n_params, NA_REAL)
+        );
+    }
+
+    Rcpp::NumericVector final_params = Rcpp::wrap(x);
+    final_params.names() = start_params.names();
+
+    return Rcpp::List::create(
+        Rcpp::Named("value") = minf,
+        Rcpp::Named("par") = final_params
+    );
+}
+
+// [[Rcpp::export]]
+double grid_search_worker(const Rcpp::List& context, Rcpp::NumericVector params) {
+    ObjectiveData objective_data = pack_objective_data(context);
+    return neg_loglikelihood_formula(params.size(), params.begin(), NULL, &objective_data);
 }
