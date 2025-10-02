@@ -1,5 +1,3 @@
-#' @importFrom assertthat
-#'   assert_that
 #' @keywords internal
 process_input_data <- function(context) {
   cols <- names(context$data)
@@ -68,8 +66,8 @@ process_input_data <- function(context) {
     context$n_ratings <- used_n_ratings
   }
 
-  context$dependent_vars <- data.frame(rt = rt, rating = rating, response = response)
-  if (!is.null(stimulus)) context$dependent_vars$stimulus <- stimulus
+  context$dependent_vars <- cbind(rt = rt, rating = rating, response = response)
+  if (!is.null(stimulus)) context$dependent_vars <- cbind(context$dependent_vars, stimulus = stimulus)
 
   context$maxt0 <- min(rt)
 

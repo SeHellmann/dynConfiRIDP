@@ -1,0 +1,3 @@
+PKG_CPPFLAGS = -I./densities
+SOURCES = $(wildcard *.cpp densities/*.cpp)
+OBJECTS = $(SOURCES:.cpp=.o)

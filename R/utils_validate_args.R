@@ -1,6 +1,3 @@
-#' @importFrom assertthat
-#'   assert_that
-#'   is.string
 #' @keywords internal
 validate_rtconf_args <- function(
   data,
@@ -185,9 +182,6 @@ validate_rtconf_args <- function(
   }
 }
 
-#' @importFrom assertthat
-#'   assert_that
-#'   is.string
 #' @keywords internal
 validate_rtconf_models_args <- function(
     models,
@@ -343,8 +337,6 @@ validate_rtconf_models_args <- function(
   )
 }
 
-#' @importFrom assertthat
-#'   assert_that
 #' @keywords internal
 validate_input_data <- function(
   cols,
@@ -422,9 +414,6 @@ validate_input_data <- function(
   )
 }
 
-#' @importFrom utils
-#'   capture.output
-#'   str
 #' @keywords internal
 describe <- function(x, max_lines = 5) {
   out <- capture.output(str(x))

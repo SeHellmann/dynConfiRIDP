@@ -1,12 +1,4 @@
 #' @keywords internal
-#' @importFrom stats
-#'   rnorm
-#'   setNames
-#' @importFrom parallel
-#'   makeCluster
-#'   stopCluster
-#'   clusterExport
-#'   parLapply
 fitting_dynwev_formula <- function(context) {
   #### grid search setup ####
   if (context$grid_search) {
@@ -39,28 +31,28 @@ fitting_dynwev_formula <- function(context) {
   log_likelihood <- NULL
   if (context$grid_search) {
     if (context$logging) {
-      logger::log_info(sprintf(
+      log_info(sprintf(
         "%d parameter sets to check for %d rows of data",
         nrow(inits),
         nrow(context$dependent_vars)
       ))
-      logger::log_info("Searching initial values...")
+      log_info("Searching initial values...")
       start_time <- Sys.time()
     }
     inits_rows <- lapply(seq_len(nrow(inits)), function(i) inits[i, ])
 
     log_likelihood <- if (context$parallel) {
-      parallel::parLapply(cl, inits_rows, function(row) grid_search_worker(context, row))
+      parLapply(cl, inits_rows, function(row) grid_search_worker(context, row))
     } else {
       lapply(inits_rows, function(row) grid_search_worker(context, row))
     }
 
     if (context$logging) {
-      logger::log_success(sprintf(
+      log_success(sprintf(
         "Intial grid search took %.2f",
         difftime(Sys.time(), start_time, units = "mins")
       ))
-      save(log_likelihood, inits, context$dependent_vars, file = context$logfile)
+      save(log_likelihood, inits, file = context$logfile)
     }
 
     log_likelihood <- vapply(log_likelihood, identity, numeric(1))
@@ -68,14 +60,14 @@ fitting_dynwev_formula <- function(context) {
   }
 
   #### optimization ####
-  if (context$logging) logger::log_info("Start fitting...")
+  if (context$logging) log_info("Start fitting...")
 
   starts <- inits[seq_len(context$opts$n_attempts), , drop = FALSE]
   starts_rows <- lapply(seq_len(nrow(starts)), function(i) starts[i, ])
 
   optim_outs <- if (context$parallel && context$opts$n_attempts > 1) {
     clusterExport(cl, varlist = c("optim_node"), envir = environment())
-    parallel::parLapply(
+    parLapply(
       cl,
       starts_rows,
       function(start_params) optim_node(context, start_params)
@@ -92,7 +84,7 @@ fitting_dynwev_formula <- function(context) {
   fit <- if (length(best_idx) == 0) NULL else optim_outs[[best_idx]]
 
   if (context$logging) {
-    save(log_likelihood, context$dependent_vars, inits, optim_outs, file = context$logfile)
+    save(log_likelihood, inits, optim_outs, file = context$logfile)
   }
 
   #### wrap up results ####
@@ -116,12 +108,12 @@ fitting_dynwev_formula <- function(context) {
     res$AICc <- res$AIC + (2 * res$k * (res$k + 1)) / (res$N - res$k - 1)
 
     if (context$logging) {
-      logger::log_success("Done fitting and autosaved results")
-      save(log_likelihood, context$dependent_vars, context$model_matrix, fit, inits, res, file = context$logfile)
+      log_success("Done fitting and autosaved results")
+      save(log_likelihood, fit, inits, res, file = context$logfile)
     }
   } else {
     if (context$logging) {
-      logger::log_warn("No valid fit could be obtained, all optimization attempts returned NA")
+      log_warn("No valid fit could be obtained, all optimization attempts returned NA")
     } else {
       warning("No valid fit could be obtained, all optimization attempts returned NA")
     }
@@ -133,14 +125,14 @@ fitting_dynwev_formula <- function(context) {
 #' @keywords internal
 optim_node <- function(context, start_params) {
   node_fit <- NULL
-  for (j in seq_len(context$n_restarts)) {
+  for (j in seq_len(context$opts$n_restarts)) {
     # jitter start
     start_params <- start_params + rnorm(length(start_params), sd = pmax(0.001, abs(start_params / 20)))
     # STUB for nlopt rcpp export
     m <- tryCatch({
       nlopt_optimizer(context, start_params)
     }, error = function(e) {
-      if (context$logging) logger::log_error(paste("Optimization failed:", e$message))
+      if (context$logging) log_error(paste("Optimization failed:", e$message))
       NULL
     })
 

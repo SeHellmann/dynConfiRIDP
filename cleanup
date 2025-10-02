@@ -1,0 +1,4 @@
+#!/bin/sh
+find src -name '*.o' -delete
+find src -name '*.so' -delete
+find src -name '*.dll' -delete

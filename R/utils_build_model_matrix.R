@@ -1,7 +1,4 @@
 #' @keywords internal
-#' @importFrom stats
-#'   model.matrix
-#'   setNames
 build_model_matrix <- function(context) {
   # add constant columns for missing manipulated parameters
   for (p in context$manipulated_parnames) {

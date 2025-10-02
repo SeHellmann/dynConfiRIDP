@@ -1,5 +1,4 @@
 #' @export
-#' @useDynLib dynConfiRIDP, .registration = TRUE
 fit_rtconf_formula <- function(
   data,
   model = "dynWEV",

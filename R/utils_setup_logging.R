@@ -1,16 +1,8 @@
-#' @importFrom logger
-#'   layout_glue_generator
-#'   log_layout log_appender
-#'   appender_file
-#'   log_threshold
-#'   log_info
-#'   log_success
-#'   DEBUG
 #' @keywords internal
 setup_logging <- function(context) {
   if (context$logging) {
     participant <- 999
-    potential_sbj_cols <- c("sbj", "participation", "subject")
+    potential_sbj_cols <- c("sbj", "participant", "subject")
     sbjcol <- potential_sbj_cols[match(TRUE, potential_sbj_cols %in% names(context$data))]
     if (is.na(sbjcol)) sbjcol <- NULL
 

@@ -11,6 +11,5 @@ print(res)
 
 ratings_to_keep <- c(2, 3, 5)
 data_with_gaps <- data[data$rating %in% ratings_to_keep, ]
-print(sort(unique(data_with_gaps$rating)))
 
 # res <- fit_rtconf_formula(data_with_gaps, manipulations = manipulations, n_ratings = 6)

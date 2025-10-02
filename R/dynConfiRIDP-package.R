@@ -9,5 +9,38 @@
 "_PACKAGE"
 
 ## usethis namespace: start
+#' @useDynLib dynConfiRIDP, .registration = TRUE
+#' @import nloptr
+#' @import RcppArmadillo
+#' @importFrom  Rcpp
+#'   sourceCpp
+#' @importFrom assertthat
+#'   assert_that
+#'   is.string
+#' @importFrom logger
+#'   appender_file
+#'   DEBUG
+#'   layout_glue_generator
+#'   log_appender
+#'   log_layout
+#'   log_info
+#'   log_success
+#'   log_warn
+#'   log_error
+#'   log_threshold
+#' @importFrom parallel
+#'   clusterApplyLB
+#'   clusterExport
+#'   detectCores
+#'   makeCluster
+#'   parLapply
+#'   stopCluster
+#' @importFrom stats
+#'   model.matrix
+#'   rnorm
+#'   setNames
+#' @importFrom utils
+#'   capture.output
+#'   str
 ## usethis namespace: end
 NULL
