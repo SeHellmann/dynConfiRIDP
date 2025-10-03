@@ -37,7 +37,8 @@ fit_context <- function(args) {
     n_cores = args$n_cores,
     #### placeholders for derived values
     #### setup_logging
-    logfile = NULL,
+    log_file = NULL,
+    data_file = NULL,
     #### get_model_params
     model_type = NULL,
     parnames = NULL,
