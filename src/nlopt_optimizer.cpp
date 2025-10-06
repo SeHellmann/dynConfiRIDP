@@ -3,12 +3,15 @@
 #include <nloptrAPI.h>
 #include <cmath>
 #include <cstddef>
-#include <limits>
+#include <sstream>
 #include <string>
 #include <vector>
 #include "densities/density_WEVmu.h"
 #include "model_context.hpp"
 #include "logger.hpp"
+
+static int eval_count = 0;
+static double last_best_logl = std::numeric_limits<double>::infinity();
 
 double neg_loglikelihood_formula(
     unsigned n,
@@ -16,36 +19,34 @@ double neg_loglikelihood_formula(
     double* grad,
     void* func_data
 ) {
-    Rcpp::checkUserInterrupt();
-
-    EstimationContext* estimation_context = static_cast<EstimationContext*>(func_data);
-    
+    OptimizationContext* optimization_context = static_cast<OptimizationContext*>(func_data);
     arma::vec beta(const_cast<double*>(x), n, false, true);
 
-    int n_trials = estimation_context->dependent_vars.n_rows;
+    int n_trials = optimization_context->dependent_vars.n_rows;
     double total_logl = 0.0;
 
-
     for (int i = 0; i < n_trials; ++i) {
-        ModelParameters params = estimation_context->create_trial_params(i, beta);
-        params.apply_transformations(*estimation_context);
+        Rcpp::checkUserInterrupt();
 
-        if (estimation_context->dependent_vars.n_cols > 3) {
-            params.v *= estimation_context->dependent_vars(i, 3);
+        ModelParameters params = optimization_context->get_trial_params(i, beta);
+        params.apply_transformations(*optimization_context);
+
+        if (optimization_context->dependent_vars.n_cols > 3) {
+            params.v *= optimization_context->dependent_vars(i, 3);
         }
 
-        bool boundary = estimation_context->dependent_vars(i, 1);
-        double rt = estimation_context->dependent_vars(i, 0);
+        bool boundary = optimization_context->dependent_vars(i, 2);
+        double rt = optimization_context->dependent_vars(i, 0);
 
-        Rcpp::NumericVector fit_vector = params.to_density_vector(boundary, estimation_context->precision);
+        Rcpp::NumericVector fit_vector = params.to_density_vector(boundary);
 
         double prob = std::abs(g_minus_WEVmu(rt, fit_vector));
 
         if (prob == 0) {
-            // Logger::warn("Numerical underflow at trial " + std::to_string(i));
+            // Logger::warn("Zero probability at trial " + std::to_string(i));
             total_logl += std::log(std::numeric_limits<double>::min());
         } else if (R_IsNaN(prob)) {
-            Logger::error("NaN probability encountered at trial " + std::to_string(i));
+            Logger::error("NaN probability at trial " + std::to_string(i));
             return 1e12;
         } else {
             total_logl += std::log(prob);
@@ -57,14 +58,29 @@ double neg_loglikelihood_formula(
         return 1e12;
     }
 
-    return -total_logl;
+    double negLogLik = -total_logl;
+    if (++eval_count % 20 == 0) {
+        std::stringstream ss;
+        ss << "Evaluation " << eval_count 
+           << " - negLogLik: " << negLogLik 
+           << " (prev best: " << last_best_logl << ")\n";
+           
+        Logger::info(ss.str());
+        
+        if (negLogLik < last_best_logl) {
+            last_best_logl = negLogLik;
+        }
+    }
+
+    return negLogLik;
 }
 
 // [[Rcpp::export]]
-Rcpp::List nlopt_optimizer(const Rcpp::List& context, Rcpp::NumericVector start_params) {
+Rcpp::List nlopt_optimizer(const Rcpp::List& optim_context, Rcpp::NumericVector start_params) {
     try {
-        EstimationContext estimation_context(context);
-        std::string optim_method = Rcpp::as<std::string>(context["optim_method"]);
+        OptimizationContext optimization_context(optim_context);
+
+        std::string optim_method = Rcpp::as<std::string>(optim_context["optim_method"]);
         unsigned n_params = start_params.size();
 
         std::stringstream ss;
@@ -75,32 +91,54 @@ Rcpp::List nlopt_optimizer(const Rcpp::List& context, Rcpp::NumericVector start_
         nlopt_opt opt;
         if (optim_method == "Nelder-Mead") {
             opt = nlopt_create(NLOPT_LN_NELDERMEAD, n_params);
+
+            std::vector<double> step(n_params, 0.02);
+            nlopt_set_initial_step(opt, step.data());
         } else if (optim_method == "bobyqa") {
             opt = nlopt_create(NLOPT_LN_BOBYQA, n_params);
+
+            std::vector<double> step(n_params, 2);
+            nlopt_set_initial_step(opt, step.data());
+            nlopt_set_vector_storage(opt, n_params + 5);
         } else {
             Logger::error("Unsupported optimization method: " + optim_method);
             Rcpp::stop("Unsupported optimization method provided.");
         }
 
-        nlopt_set_min_objective(opt, neg_loglikelihood_formula, &estimation_context);
+        nlopt_set_min_objective(opt, neg_loglikelihood_formula, &optimization_context);
         
-        Rcpp::List opts = Rcpp::as<Rcpp::List>(context["opts"]);
+        Rcpp::List opts = Rcpp::as<Rcpp::List>(optim_context["opts"]);
         double reltol = Rcpp::as<double>(opts["reltol"]);
-        int maxfun = Rcpp::as<int>(opts["maxfun"]);
-        
-        ss.str("");
-        ss << "Optimization settings - MaxFun: " << maxfun << ", RelTol: " << reltol;
-        Logger::info(ss.str());
-        
+
+        nlopt_set_ftol_rel(opt, reltol);
         nlopt_set_xtol_rel(opt, reltol);
-        nlopt_set_maxeval(opt, maxfun);
+        nlopt_set_ftol_abs(opt, 1e-10);
+        nlopt_set_xtol_abs1(opt, 1e-10);
+        nlopt_set_maxeval(opt, Rcpp::as<int>(opts["maxfun"]));
+        nlopt_set_maxtime(opt, 3600.0);
+
+        std::vector<double> lb(n_params, -20.0);
+        std::vector<double> ub(n_params, 20.0);
+        nlopt_set_lower_bounds(opt, lb.data());
+        nlopt_set_upper_bounds(opt, ub.data());
 
         std::vector<double> x = Rcpp::as<std::vector<double>>(start_params);
         double minf;
 
-        double initial_nll = neg_loglikelihood_formula(n_params, x.data(), nullptr, &estimation_context);
+        eval_count = 0;
+        last_best_logl = std::numeric_limits<double>::infinity();
+        
+        minf = neg_loglikelihood_formula(n_params, x.data(), nullptr, &optimization_context);
+        
         ss.str("");
-        ss << "Initial negative log-likelihood: " << initial_nll;
+        ss << "Initial parameters: ";
+        for (size_t i = 0; i < x.size(); ++i) {
+            ss << x[i] << " ";
+        }
+        Logger::info(ss.str());
+        
+        ss.str("");
+        ss << "Initial negLogLik: " << minf;
         Logger::info(ss.str());
 
         nlopt_result result = nlopt_optimize(opt, x.data(), &minf);
@@ -118,7 +156,8 @@ Rcpp::List nlopt_optimizer(const Rcpp::List& context, Rcpp::NumericVector start_
         }
 
         ss.str("");
-        ss << "Optimization complete - Final negLogLik: " << minf;
+        ss << "Optimization complete after " << eval_count << " evaluations"
+           << " - Final negLogLik: " << minf;
         Logger::info(ss.str());
 
         Rcpp::NumericVector final_params = Rcpp::wrap(x);
@@ -139,7 +178,7 @@ Rcpp::List nlopt_optimizer(const Rcpp::List& context, Rcpp::NumericVector start_
 }
 
 // [[Rcpp::export]]
-double grid_search_worker(const Rcpp::List& context, Rcpp::NumericVector params) {
-    EstimationContext estimation_context(context);
-    return neg_loglikelihood_formula(params.size(), params.begin(), NULL, &estimation_context);
+double grid_search_worker(const Rcpp::List& optim_context, Rcpp::NumericVector params) {
+    OptimizationContext optimization_context(optim_context);
+    return neg_loglikelihood_formula(params.size(), params.begin(), NULL, &optimization_context);
 }

@@ -13,7 +13,7 @@ setup_logging <- function(context) {
   context$log_file <- paths$log_file
   context$data_file <- paths$data_file
 
-  logger::log_info(sprintf("Logging initialized - Log: %s", paths$log_file))
+  logger::log_info(sprintf("Logging initialized: %s", paths$log_file))
   logger::log_info(sprintf("Data file location: %s", paths$data_file))
 
   context
@@ -56,12 +56,12 @@ get_log_paths <- function(model_dir, model_name, participant_id) {
 setup_log_layout <- function(model_name, participant_id) {
   logger::layout_glue_generator(
     format = paste(
-      "[{sprintf('%-5s', level)}]",
+      "[{level}]",
       "[{format(time, \"%H:%M:%S\")}]",
-      "[PID: {sprintf('%-5s', pid)}]",
-      "[{sprintf('%-18s', fn)}]",
-      "[SUBJ:", sprintf("%-3s", participant_id), "]",
-      "[MODEL:", sprintf("%-10s", model_name), "]",
+      "[PID: {pid}]",
+      "[{fn}]",
+      paste0("[SUBJ: ", participant_id, "]"),
+      paste0("[MODEL: ", model_name, "]:"),
       "{msg}"
     )
   )
@@ -86,51 +86,4 @@ save_optimization_state <- function(context, state_data, type = c("grid_search",
       context$data_file
     )
   )
-}
-
-#' @keywords internal
-log_progress <- function(message, type = c("info", "success", "warning", "error")) {
-  type <- match.arg(type)
-  log_fn <- switch(type,
-    "info" = logger::log_info,
-    "success" = logger::log_success,
-    "warning" = logger::log_warn,
-    "error" = logger::log_error
-  )
-  log_fn(message)
-}
-
-#' @keywords internal
-format_numeric <- function(x, digits = 4) {
-  sprintf(paste0("%.", digits, "f"), x)
-}
-
-#' @keywords internal
-log_optimization_update <- function(iteration, current_value, best_value, context) {
-  if (!context$logging) return(invisible())
-
-  log_progress(sprintf(
-    "Iteration %d - Current: %s - Best: %s",
-    iteration,
-    format_numeric(current_value),
-    format_numeric(best_value)
-  ))
-}
-
-#' @keywords internal
-log_model_info <- function(context, parameters = NULL) {
-  if (!context$logging) return(invisible())
-
-  log_progress(sprintf("Model: %s", context$model))
-  log_progress(sprintf("Data rows: %d", nrow(context$data)))
-  if (!is.null(parameters)) {
-    log_progress(sprintf(
-      "Parameters: %s",
-      paste(
-        names(parameters),
-        format_numeric(unlist(parameters)),
-        sep = "=", collapse = ", "
-      )
-    ))
-  }
 }

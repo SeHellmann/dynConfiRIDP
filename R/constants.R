@@ -2,8 +2,7 @@
 DYNWEV_MODELS <- c("2DSD", "dynWEV", "dynaViTE")
 RM_MODELS <- c("IRM", "PCRM", "IRMt", "PCRMt")
 MODELS <- c(DYNWEV_MODELS, RM_MODELS)
-# "d", "muvis" ??
-DYNWEV_PARNAMES <- c("a", "z", "sz", "v", "s", "sv", "tau", "muvis", "svis", "sigvis", "w", "lambda", "t0", "st0")
+DYNWEV_PARNAMES <- c("a", "v", "t0", "d", "sz", "sv", "st0", "z", "tau", "lambda", "w", "muvis", "sigvis", "svis", "s")
 RM_PARNAMES <- c("a", "b", "mu1", "mu2", "s1", "s2", "rho", "wx", "wrt", "wint", "t0", "st0")
 OPTIM_METHODS <- c("Nelder-Mead", "bobyqa") # "L-BFGS-B"
 DEFAULT_OPTS <- list(

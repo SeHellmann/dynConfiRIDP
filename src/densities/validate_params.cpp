@@ -1,4 +1,4 @@
-#include "validate_parameters.h"
+#include "validate_params.h"
 
 #define CHECK_PARAM(cond, paramName, value, message)                           \
   if (!(cond)) {                                                               \
@@ -12,12 +12,12 @@ void logError(const std::string &paramName, double value,
               << "' with value " << value << " " << message << std::endl;
 }
 
-bool validateParams(Rcpp::NumericVector params) {
+bool validate_params(Rcpp::NumericVector params) {
   bool valid = true;
   // a: must be > 0
   CHECK_PARAM(params[0] > 0, "a", params[0], "must be > 0")
-  // szr: must be >= 0
-  CHECK_PARAM(params[4] >= 0, "szr", params[4], "must be >= 0")
+  // sz: must be >= 0
+  CHECK_PARAM(params[4] >= 0, "sz", params[4], "must be >= 0")
   // sv: must be >= 0
   CHECK_PARAM(params[5] >= 0, "sv", params[5], "must be >= 0")
   // st0: must be >= 0
@@ -37,9 +37,9 @@ bool validateParams(Rcpp::NumericVector params) {
   // z - sz/2 >= 0 AND z + sz/2 <= 1
   if (params[7] - 0.5 * params[4] < 0 || params[7] + 0.5 * params[4] > 1) {
     valid = false;
-    Rcpp::Rcout << "[param validation error]: zr = " << params[7]
-                << ", szr = " << params[4]
-                << " must satisfy: zr - szr/2 >= 0 AND zr + szr/2 <= 1"
+    Rcpp::Rcout << "[param validation error]: z = " << params[7]
+                << ", sz = " << params[4]
+                << " must satisfy: z - sz/2 >= 0 AND z + sz/2 <= 1"
                 << std::endl;
   }
 

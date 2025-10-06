@@ -28,13 +28,13 @@ process_input_data <- function(context) {
   # if no response then both stimulus and correct or only correct (with warning)
   if (!is.null(response)) {
     response_levels <- sort(unique(response))
-    response <- ifelse(response == response_levels[1], -1, 1)
+    response <- ifelse(response == response_levels[1], 0, 1)
   } else if (!is.null(correct)) {
     if (!is.null(stimulus)) {
-      response <- ifelse(stimulus * (-1)^correct == 1, -1, 1)
+      response <- ifelse(stimulus * (-1)^correct == 1, 0, 1)
     } else {
       # get response from correct
-      response <- ifelse(correct == 0, -1, 1)
+      response <- ifelse(correct == 0, 0, 1)
 
       is_z_fixed <- ("z" %in% names(context$fixed)) && (context$fixed[["z"]] == 0.5)
       has_equal_bounds <- (

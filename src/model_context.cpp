@@ -1,112 +1,133 @@
 #include "model_context.hpp"
+#include "densities/validate_params.h"
 #include "Rcpp/vector/instantiation.h"
 #include "current/armadillo"
 #include <cstddef>
 #include <map>
-#include <vector>
-
-const double MIN_THETA = -1e32;
-const double MAX_THETA = 1e32;
-
-enum class ParamType { 
-    a, v, t0, d, z, sz, sv, st0, tau, lambda, w, muvis, sigvis, svis, s, unknown 
-};
+#include <string>
+#include <regex>
 
 static const std::map<std::string, ParamType> param_map = {
-    {"a", ParamType::a}, {"v", ParamType::v}, {"t0", ParamType::t0}, 
-    {"d", ParamType::d}, {"z", ParamType::z}, {"sz", ParamType::sz}, 
-    {"sv", ParamType::sv}, {"st0", ParamType::st0}, {"tau", ParamType::tau}, 
+    {"a", ParamType::a}, {"v", ParamType::v}, {"t0", ParamType::t0},
+    {"d", ParamType::d}, {"sz", ParamType::sz}, {"sv", ParamType::sv},
+    {"st0", ParamType::st0}, {"z", ParamType::z}, {"tau", ParamType::tau}, 
     {"lambda", ParamType::lambda}, {"w", ParamType::w}, {"muvis", ParamType::muvis}, 
     {"sigvis", ParamType::sigvis}, {"svis", ParamType::svis}, {"s", ParamType::s}
 };
 
-static const std::vector<std::string> param_names = {
-    "a", "v", "t0", "d", "z",
-    "sz", "sv", "st0", "tau", "lambda", 
-    "w", "muvis", "sigvis", "svis", "s"
-};
-
-EstimationContext::EstimationContext(const Rcpp::List& context) :
-    dependent_vars(Rcpp::as<arma::mat>(context["dependent_vars"])),
-    model_matrix(Rcpp::as<arma::mat>(context["model_matrix"])),
-    beta_map(Rcpp::as<Rcpp::List>(context["beta_map"])),
-    fixed(Rcpp::as<Rcpp::List>(context["fixed"])),
-    beta_names(Rcpp::as<Rcpp::CharacterVector>(context["beta_names"])),
-    maxt0(Rcpp::as<double>(context["maxt0"])),
-    restr_tau(Rcpp::as<double>(context["restr_tau"])),
-    precision(Rcpp::as<double>(context["precision"])),
-    n_ratings(Rcpp::as<int>(context["n_ratings"])),
-    simult_conf(Rcpp::as<bool>(context["simult_conf"])),
-    sym_thetas(Rcpp::as<bool>(context["sym_thetas"]))
+OptimizationContext::OptimizationContext(const Rcpp::List& optimization_context) :
+    dependent_vars(Rcpp::as<arma::mat>(optimization_context["dependent_vars"])),
+    maxt0(Rcpp::as<double>(optimization_context["maxt0"])),
+    restr_tau(Rcpp::as<double>(optimization_context["restr_tau"])),
+    precision(Rcpp::as<double>(optimization_context["precision"])),
+    simult_conf(Rcpp::as<bool>(optimization_context["simult_conf"])),
+    model_matrix(Rcpp::as<arma::mat>(optimization_context["model_matrix"])),
+    n_ratings(Rcpp::as<int>(optimization_context["n_ratings"])),
+    sym_thetas(Rcpp::as<bool>(optimization_context["sym_thetas"]))
 {
+    Rcpp::List fixed_list = optimization_context["fixed_params"];
+    Rcpp::CharacterVector fixed_names = fixed_list.names();
+    for (int i = 0; i < fixed_list.size(); ++i) {
+        auto it = param_map.find(std::string(fixed_names[i]));
+        if (it != param_map.end()) {
+            fixed_params.push_back({ it->second, Rcpp::as<double>(fixed_list[i]) });
+        }
+    }
+
+    Rcpp::List estimated_list = optimization_context["estimated_params"];
+    Rcpp::CharacterVector estimated_names = estimated_list.names();
+    for (int i = 0; i < estimated_list.size(); ++i) {
+        auto it = param_map.find(std::string(estimated_names[i]));
+        if (it != param_map.end()) {
+            estimated_params.push_back({ it->second, Rcpp::as<int>(estimated_list[i]) - 1 });
+        }
+    }
+
+    Rcpp::List formula_list = optimization_context["formula_params"];
+    Rcpp::CharacterVector formula_names = formula_list.names();
+    for (int i = 0; i < formula_list.size(); ++i) {
+        auto it = param_map.find(std::string(formula_names[i]));
+        if (it != param_map.end()) {
+            FormulaParam formula_param = { it->second };
+            Rcpp::List components = formula_list[i];
+            for (int j = 0; j < components.size(); ++j) {
+                Rcpp::IntegerVector indices = components[j];
+                formula_param.beta_indices.push_back(Rcpp::as<arma::uvec>(indices) - 1);
+            }
+            formula_params.push_back(formula_param);
+        }
+    }
+
+    const Rcpp::CharacterVector beta_names = optimization_context["beta_names"];
+    const std::regex sym_theta_regex("^(d)?theta(?!Lower|Upper)");
     for (int i = 0; i < beta_names.size(); ++i) {
         std::string name(beta_names[i]);
         if (name.find("thetaLower") != std::string::npos) {
             lower_theta_indices.push_back(i);
         } else if (name.find("thetaUpper") != std::string::npos) {
             upper_theta_indices.push_back(i);
-        } else if (name.find("theta") != std::string::npos) {
+        } else if (std::regex_search(name, sym_theta_regex)) {
             sym_theta_indices.push_back(i);
         }
     }
 }
 
-ModelParameters EstimationContext::create_trial_params(int trial_idx, const arma::vec& beta) const {
+ModelParameters OptimizationContext::get_trial_params(int trial_idx, const arma::vec& beta) const {
     ModelParameters params = {};
 
+    for (const auto& fixed_param : fixed_params) {
+        *get_param_pointer(params, fixed_param.type) = fixed_param.value;
+    }
+
+    for (const auto& estimated_param : estimated_params) {
+        *get_param_pointer(params, estimated_param.type) = beta[estimated_param.beta_index];
+    }
+
+    if (!formula_params.empty()) {
+        arma::rowvec trial_row = model_matrix.row(trial_idx);
+        for (const auto& formula_param : formula_params) {
+            double accumulated_value = 0.0;
+            for (const auto& indices : formula_param.beta_indices) {
+                accumulated_value += arma::dot(trial_row.elem(indices), beta.elem(indices));
+            }
+            *get_param_pointer(params, formula_param.type) = accumulated_value;
+        }
+    }
+
     arma::vec thetas = calculate_thetas(beta);
-
-    std::map<std::string, double> beta_lookup;
-    for (unsigned int i = 0; i < beta.n_elem; ++i) {
-        beta_lookup[std::string(beta_names[i])] = beta[i];
-    }
-
-    for (const auto& param_name : param_names) {
-        double* target_param = get_param_pointer(params, param_name);
-        if (!target_param) continue;
-        
-        const char* param_name_str = param_name.c_str();
-
-        if (fixed.containsElementNamed(param_name_str)) {
-            *target_param = Rcpp::as<double>(fixed[param_name]);
-            continue;
-        }
-
-        if (beta_map.containsElementNamed(param_name_str)) {
-            Rcpp::IntegerVector beta_indices = beta_map[param_name];
-            arma::uvec u_beta_indices = Rcpp::as<arma::uvec>(beta_indices) - 1;
-            arma::rowvec trial_row = model_matrix.row(trial_idx);
-            *target_param = arma::dot(trial_row.elem(u_beta_indices), beta.elem(u_beta_indices));
-            continue;
-        }
-
-        auto it = beta_lookup.find(param_name);
-        if (it != beta_lookup.end()) {
-            *target_param = it->second;
-        } else {
-            *target_param = arma::datum::nan;
-        }
-    }
-
     if (!thetas.is_empty()) {
-        int response = static_cast<int>(dependent_vars(trial_idx, 1));
-        int rating = static_cast<int>(dependent_vars(trial_idx, 2));
-        int idx = response * (n_ratings + 2) + rating;
+        int rating = static_cast<int>(dependent_vars(trial_idx, 1));
+        int response = static_cast<int>(dependent_vars(trial_idx, 2));
+        
+        int block_size = n_ratings + 1;
+        int offset = response * block_size;
 
-        if (idx < static_cast<int>(thetas.n_elem) && (idx + 1) < static_cast<int>(thetas.n_elem)) {
-            params.th1 = thetas(idx);
-            params.th2 = thetas(idx + 1);
+        int th1_idx = offset + rating - 1;
+        int th2_idx = offset + rating;
+
+        if (th2_idx < static_cast<int>(thetas.n_elem)) {
+            params.th1 = thetas(th1_idx);
+            params.th2 = thetas(th2_idx);
         }
     }
-
+    
+    if (params.muvis == 0.0) {
+        bool was_set = false;
+        for (const auto& instr : fixed_params) if (instr.type == ParamType::muvis) was_set = true;
+        if (!was_set) {
+          for (const auto& instr : estimated_params) if (instr.type == ParamType::muvis) was_set = true;
+        }
+        if(!was_set) params.muvis = arma::datum::nan;
+    }
+    
     return params;
 }
 
-arma::vec EstimationContext::calculate_thetas(const arma::vec& beta) const {
+arma::vec OptimizationContext::calculate_thetas(const arma::vec& beta) const {
     return sym_thetas ? calculate_sym_thetas(beta) : calculate_asym_thetas(beta);
 }
 
-arma::vec EstimationContext::calculate_sym_thetas(const arma::vec& beta) const {
+arma::vec OptimizationContext::calculate_sym_thetas(const arma::vec& beta) const {
     if (sym_theta_indices.empty()) return arma::vec();
 
     std::vector<double> relevant_betas;
@@ -116,44 +137,50 @@ arma::vec EstimationContext::calculate_sym_thetas(const arma::vec& beta) const {
 
     if (relevant_betas.empty()) return arma::vec();
 
-    arma::vec thetas(n_ratings + 2);
+    arma::vec thetas(n_ratings + 1);
     thetas[0] = MIN_THETA;
-    thetas[1] = relevant_betas[0];
-    
-    size_t i = 1;
-    for (; i < relevant_betas.size() && (i + 1) < static_cast<size_t>(n_ratings + 2); ++i) {
+    thetas[n_ratings] = MAX_THETA;
+
+    if(relevant_betas.size() > 0) thetas[1] = relevant_betas[0];
+
+    for (size_t i = 1; i < relevant_betas.size(); ++i) {
         thetas[i + 1] = thetas[i] + std::exp(relevant_betas[i]);
     }
-    
-    thetas[n_ratings + 1] = MAX_THETA;
-    
+
     return arma::join_cols(thetas, thetas);
 }
 
-arma::vec EstimationContext::calculate_asym_thetas(const arma::vec& beta) const {
+arma::vec OptimizationContext::calculate_asym_thetas(const arma::vec& beta) const {
     auto process_theta_vector = [&](const std::vector<int>& indices) {
-        arma::vec thetas(n_ratings + 2);
+        arma::vec thetas(n_ratings + 1);
         thetas[0] = MIN_THETA;
-        thetas[n_ratings + 1] = MAX_THETA;
-        
+        thetas[n_ratings] = MAX_THETA;
+
         if (!indices.empty()) {
-            thetas[1] = beta[indices[0]];
-            for (size_t i = 1; i < indices.size() && (i + 1) < static_cast<size_t>(n_ratings + 2); ++i) {
-                thetas[i + 1] = thetas[i] + std::exp(beta[indices[i]]);
+            std::vector<double> relevant_betas;
+            for (int idx : indices) {
+                relevant_betas.push_back(beta[idx]);
+            }
+
+            if(relevant_betas.size() > 0) thetas[1] = relevant_betas[0];
+
+            for (size_t i = 1; i < relevant_betas.size(); ++i) {
+                thetas[i + 1] = thetas[i] + std::exp(relevant_betas[i]);
             }
         }
-        
+
         return thetas;
     };
-    
+
     arma::vec lower_thetas = process_theta_vector(lower_theta_indices);
     arma::vec upper_thetas = process_theta_vector(upper_theta_indices);
     
     return arma::join_cols(lower_thetas, upper_thetas);
 }
 
-void ModelParameters::apply_transformations(const EstimationContext& context) {
+void ModelParameters::apply_transformations(const OptimizationContext& optimization_context) {
     // fixed01
+    // TODO: check if fixed
     z = R::pnorm(z, 0, 1, 1, 0);
     sz = R::pnorm(sz, 0, 1, 1, 0);
     w = R::pnorm(w, 0, 1, 1, 0);
@@ -169,34 +196,32 @@ void ModelParameters::apply_transformations(const EstimationContext& context) {
     sigvis = std::exp(sigvis);
     lambda = std::exp(lambda);
     s = std::exp(s);
-    
+
     sz *= (2.0 * std::min(z, 1.0 - z));
-    t0 *= context.maxt0;
+    t0 *= optimization_context.maxt0;
     d *= t0;
-    
-    if (std::isinf(context.restr_tau)) {
+
+    if (std::isinf(optimization_context.restr_tau)) {
         tau = std::exp(tau);
-    } else if (context.simult_conf) {
-        tau *= (context.maxt0 - t0);
+    } else if (optimization_context.simult_conf) {
+        tau = R::pnorm(tau, 0, 1, 1, 0) * (optimization_context.maxt0 - t0);
     } else {
-        tau *= context.restr_tau;
+        tau = optimization_context.restr_tau * R::pnorm(tau, 0, 1, 1, 0);
     }
-    
-    if (R_IsNaN(muvis)) {
-        muvis = std::abs(v);
-    }
-    
+
+    if (R_IsNaN(muvis)) muvis = std::abs(v);
+
     a /= s;
     v /= s;
     sv /= s;
     th1 /= s;
     th2 /= s;
     muvis /= s;
-    sigvis /= s;
+    sigvis /= s; 
     svis /= s;
-    
+
+    t0 += st0;
     st0 *= 2.0;
-    t0 += st0 / 2.0;
 }
 
 Rcpp::NumericVector ModelParameters::to_density_vector(bool boundary, double precision) const {
@@ -219,33 +244,32 @@ Rcpp::NumericVector ModelParameters::to_density_vector(bool boundary, double pre
     p[14] = sigvis;
     p[15] = svis;
     
+    p[16] = 0.0089045 * std::exp(-1.037580 * precision); // TUNE_INT_T0
+    p[17] = 0.0508061 * std::exp(-1.022373 * precision); // TUNE_INT_Z
+    p[18] = std::pow(10, -(precision + 2.0));       // TUNE_SZ_EPSILON
+    p[19] = std::pow(10, -(precision + 2.0));       // TUNE_ST0_EPSILON
+
+    if(!validate_params(p)) Rcpp::stop("Error validating params.\n");
+    
     if (boundary) {
         p[7] = 1.0 - p[7]; // z -> 1 - z
         p[1] = -p[1];      // v -> -v
         p[3] = -p[3];      // d -> -d
     }
-    
-    p[16] = 0.0089045 * std::exp(-1.037580 * precision); // TUNE_INT_T0
-    p[17] = 0.0508061 * std::exp(-1.022373 * precision); // TUNE_INT_Z
-    p[18] = std::pow(10, -(precision + 2.0)); // TUNE_SZ_EPSILON
-    p[19] = std::pow(10, -(precision + 2.0)); // TUNE_ST0_EPSILON
-    
+
     return p;
 }
 
-double* EstimationContext::get_param_pointer(ModelParameters& params, const std::string& param_name) const {
-    auto it = param_map.find(param_name);
-    if (it == param_map.end()) return nullptr;
-    
-    switch (it->second) {
+double* OptimizationContext::get_param_pointer(ModelParameters& params, ParamType type) const {
+    switch (type) {
         case ParamType::a: return &params.a;
         case ParamType::v: return &params.v;
         case ParamType::t0: return &params.t0;
         case ParamType::d: return &params.d;
-        case ParamType::z: return &params.z;
         case ParamType::sz: return &params.sz;
         case ParamType::sv: return &params.sv;
         case ParamType::st0: return &params.st0;
+        case ParamType::z: return &params.z;
         case ParamType::tau: return &params.tau;
         case ParamType::lambda: return &params.lambda;
         case ParamType::w: return &params.w;
