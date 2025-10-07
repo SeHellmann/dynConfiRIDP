@@ -10,8 +10,6 @@
 #include "utils/logger.hpp"
 
 static int eval_count = 0;
-static int zero_prob_count = 0;
-static int nan_prob_count = 0;
 static double last_best_logl = std::numeric_limits<double>::infinity();
 
 double neg_loglikelihood_formula(
@@ -43,10 +41,8 @@ double neg_loglikelihood_formula(
         double prob = std::abs(g_minus_WEVmu(rt, fit_vector));
 
         if (prob == 0) {
-            ++zero_prob_count;
             total_logl += std::log(std::numeric_limits<double>::min());
         } else if (R_IsNaN(prob)) {
-            ++nan_prob_count;
             Logger::error("NaN probability at trial " + std::to_string(i));
             return 1e12;
         } else {
@@ -63,10 +59,8 @@ double neg_loglikelihood_formula(
     if (++eval_count % 20 == 0) {
         std::stringstream ss;
         ss << "Evaluation " << eval_count 
-           << " - negLogLik: " << negLogLik << "\n"
-           << "    | previous best: " << last_best_logl << "\n"
-           << "    | zero prob count: " << zero_prob_count << "\n"
-           << "    | NaN prob count: " << nan_prob_count << "\n";
+           << " - negLogLik: " << negLogLik
+           << " (previous best: " << last_best_logl << ")\n";
            
         Logger::info(ss.str());
         
@@ -125,8 +119,6 @@ Rcpp::List nlopt_optimizer(const Rcpp::List& optim_context, Rcpp::NumericVector 
         double minf;
 
         eval_count = 0;
-        zero_prob_count = 0;
-        nan_prob_count = 0;
         last_best_logl = std::numeric_limits<double>::infinity();
         
         ss.str("");
@@ -174,11 +166,6 @@ Rcpp::List nlopt_optimizer(const Rcpp::List& optim_context, Rcpp::NumericVector 
 
 // [[Rcpp::export]]
 double grid_search_worker(const Rcpp::List& optim_context, Rcpp::NumericVector params) {
-    eval_count = 0;
-    zero_prob_count = 0;
-    nan_prob_count = 0;
-    last_best_logl = std::numeric_limits<double>::infinity();
-
     OptimizationContext optimization_context(optim_context);
     return neg_loglikelihood_formula(params.size(), params.begin(), NULL, &optimization_context);
 }

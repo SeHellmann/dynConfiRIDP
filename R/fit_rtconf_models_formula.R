@@ -12,14 +12,14 @@ fit_rtconf_models_formula <- function(
   opts = list(),
   grid_search = TRUE,
   logging = FALSE,
-  parallel_mode = "none",
+  parallel = FALSE,
   n_cores = NULL
 ) {
   validate_rtconf_models_args(
     models,
     optim_method,
     manipulations,
-    parallel_mode,
+    parallel,
     n_cores
   )
 
@@ -36,35 +36,6 @@ fit_rtconf_models_formula <- function(
     }
   }
   subjects <- unique(data$sbj)
-  n_jobs <- length(models) * length(subjects)
-
-  parallel_subject <- FALSE
-  parallel_model <- FALSE
-  n_cores_subject <- NULL
-  n_cores_model <- NULL
-  switch(parallel_mode,
-    "none" = {},
-    "subject" = {
-      parallel_subject <- TRUE
-      n_cores_subject <- if (is.null(n_cores)) detectCores() - 1 else n_cores
-    },
-    "model" = {
-      parallel_model <- TRUE
-      n_cores_model <- if (is.null(n_cores)) min(detectCores() - 1, n_jobs) else n_cores
-    },
-    "both" = {
-      parallel_subject <- TRUE
-      parallel_model <- TRUE
-
-      if (is.null(n_cores)) {
-        n_cores_subject <- detectCores() - 1
-        n_cores_model <- min(detectCores() - 1, n_jobs)
-      } else {
-        n_cores_subject <- n_cores[1]
-        n_cores_model <- n_cores[2]
-      }
-    }
-  )
 
   # Prepare the job list for combinations of models & subjects
   jobs <- expand.grid(model = seq_along(models), sbj = subjects)
@@ -99,41 +70,29 @@ fit_rtconf_models_formula <- function(
       precision = precision,
       opts = opts,
       grid_search = grid_search,
-      logging = logging,
-      parallel = parallel_subject,
-      n_cores = n_cores_subject
+      logging = logging
     )
-    # not completely sure about the return yet
     res$model <- job$model
     res$sbj <- job$sbj
 
     res
   }
 
-  if (parallel_model) {
-    clmodels <- makeCluster(type = "SOCK", n_cores_model)
-    vars_to_export <- c(
-      "data",
-      "optim_method",
-      "fixed",
-      "n_ratings",
-      "restr_tau",
-      "sym_thetas",
-      "precision",
-      "opts",
-      "grid_search",
-      "logging",
-      "parallel_subject",
-      "n_cores_subject",
-      "fit_rtconf_formula"
-    )
-    clusterExport(clmodels, varlist = vars_to_export, envir = environment())
-    on.exit(try(stopCluster(clmodels), silent = TRUE))
-    res <- clusterApplyLB(clmodels, jobs_list, fun = call_fitfct)
-    stopCluster(clmodels)
+  if (parallel) {
+    n_cores <- if (is.null(n_cores)) availableCores() - 1 else n_cores
+    plan(multisession, workers = n_cores)
   } else {
-    res <- lapply(jobs_list, call_fitfct)
+    plan(sequential)
   }
+
+  on.exit(plan(sequential), add = TRUE)
+
+  res <- future_lapply(
+    jobs_list,
+    function(job) call_fitfct(job),
+    future.seed = TRUE,
+    future.packages = "logger"
+  )
 
   res
 }

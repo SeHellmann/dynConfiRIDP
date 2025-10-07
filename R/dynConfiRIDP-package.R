@@ -28,13 +28,13 @@
 #'   log_warn
 #'   log_error
 #'   log_threshold
-#' @importFrom parallel
-#'   clusterApplyLB
-#'   clusterExport
-#'   detectCores
-#'   makeCluster
-#'   parLapply
-#'   stopCluster
+#' @importFrom future
+#'   plan
+#'   multisession
+#'   sequential
+#'   availableCores
+#' @importFrom future.apply
+#'   future_lapply
 #' @importFrom stats
 #'   model.matrix
 #'   rnorm

@@ -13,7 +13,6 @@ DEFAULT_OPTS <- list(
   reltol = 1e-6,
   factr = 1e-10
 )
-PARALLEL_MODES <- c("none", "subject", "model", "both")
 
 #' @keywords internal
 #' @noRd

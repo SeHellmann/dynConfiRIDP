@@ -23,12 +23,13 @@ URL: https://github.com/SeHellmann/dynConfiR_idp,
     https://sehellmann.github.io/dynConfiR_idp/
 BugReports: https://github.com/SeHellmann/dynConfiR_idp
 Depends: 
-    R (>= 4.0)
+    R (>= 4.1.0)
 Imports: 
     Rcpp,
     RcppArmadillo,
     nloptr (>= 1.2.0),
-    parallel,
+    future,
+    future.apply,
     stats,
     assertthat,
     logger

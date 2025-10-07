@@ -25,6 +25,12 @@ fit_rtconf_formula <- function(
     process_input_data() |>
     build_model_matrix()
 
+  if (parallel) {
+    n_cores <- if (is.null(n_cores)) availableCores() - 1 else n_cores
+    plan(multisession, workers = n_cores)
+    on.exit(plan(sequential), add = TRUE)
+  }
+
   return(switch(context$model_type,
     "dynWEV" = fitting_dynwev_formula(context),
     "RM" = stop(sprintf("Model: %s not yet implemented", context$model)),

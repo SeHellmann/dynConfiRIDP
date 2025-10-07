@@ -30,14 +30,6 @@ fitting_dynwev_formula <- function(context) {
     inits[, "st0"] <- inits[, "st0"] / 2 - 1.6
   }
 
-  #### parallel cluster setup ####
-  if (context$parallel) {
-    cl <- makeCluster(context$n_cores, type = "SOCK")
-    on.exit(try(stopCluster(cl), silent = TRUE))
-    clusterExport(cl, varlist = c("context"), envir = environment())
-    if (context$logging) logger::log_info(sprintf("Initialized parallel cluster with %d cores", context$n_cores))
-  }
-
   #### grid search ####
   log_likelihood <- NULL
   if (context$grid_search) {
@@ -50,11 +42,11 @@ fitting_dynwev_formula <- function(context) {
     }
 
     inits_rows <- lapply(seq_len(nrow(inits)), function(i) inits[i, ])
-    log_likelihood <- if (context$parallel) {
-      parLapply(cl, inits_rows, function(row) grid_search_worker(optimization_context, row))
-    } else {
-      lapply(inits_rows, function(row) grid_search_worker(optimization_context, row))
-    }
+    log_likelihood <- future_lapply(
+      inits_rows,
+      function(row) grid_search_worker(optimization_context, row),
+      future.seed = TRUE
+    )
 
     log_likelihood <- vapply(log_likelihood, identity, numeric(1))
     inits <- inits[order(log_likelihood), ]
@@ -83,19 +75,11 @@ fitting_dynwev_formula <- function(context) {
   starts <- inits[seq_len(context$opts$n_attempts), , drop = FALSE]
   starts_rows <- lapply(seq_len(nrow(starts)), function(i) starts[i, ])
 
-  optim_outs <- if (context$parallel && context$opts$n_attempts > 1) {
-    clusterExport(cl, varlist = c("optim_node"), envir = environment())
-    parLapply(
-      cl,
-      starts_rows,
-      function(start_params) optimization_node(optimization_context, start_params, context$logging)
-    )
-  } else {
-    lapply(
-      starts_rows,
-      function(start_params) optimization_node(optimization_context, start_params, context$logging)
-    )
-  }
+  optim_outs <- future_lapply(
+    starts_rows,
+    function(start_params) optimization_node(optimization_context, start_params),
+    future.seed = TRUE
+  )
 
   values <- vapply(optim_outs, function(x) x$value, numeric(1))
   best_idx <- which.min(values)
@@ -142,8 +126,8 @@ fitting_dynwev_formula <- function(context) {
 }
 
 #' @keywords internal
-optimization_node <- function(optimization_context, start_params, logging) {
-  if (logging) {
+optimization_node <- function(optimization_context, start_params) {
+  if (optimization_context$logging) {
     logger::log_info(sprintf(
       "Starting optimization node with %d restarts - Initial params: %s",
       optimization_context$opts$n_restarts,
@@ -161,7 +145,7 @@ optimization_node <- function(optimization_context, start_params, logging) {
     jittered_params <- start_params +
       rnorm(length(start_params), sd = pmax(0.001, abs(start_params / 20)))
 
-    if (logging) {
+    if (optimization_context$logging) {
       logger::log_info(sprintf(
         "Restart %d/%d - Jittered params: %s",
         j, optimization_context$opts$n_restarts,
@@ -176,7 +160,7 @@ optimization_node <- function(optimization_context, start_params, logging) {
     current_fit <- tryCatch({
       nlopt_optimizer(optimization_context, jittered_params)
     }, error = function(e) {
-      if (logging) {
+      if (optimization_context$logging) {
         logger::log_error(sprintf(
           "Optimization failed on restart %d: %s",
           j, e$message
@@ -189,7 +173,7 @@ optimization_node <- function(optimization_context, start_params, logging) {
       node_fit <- current_fit
       best_value <- current_fit$value
 
-      if (logging) {
+      if (optimization_context$logging) {
         logger::log_success(sprintf(
           "New best fit on restart %d - negLogLik: %s - Params: %s",
           j, sprintf("%.4f", best_value),
@@ -206,7 +190,7 @@ optimization_node <- function(optimization_context, start_params, logging) {
   }
 
   if (is.null(node_fit)) {
-    if (logging) {
+    if (optimization_context$logging) {
       logger::log_warn("Node failed to find valid fit across all restarts")
     }
     list(
@@ -214,7 +198,7 @@ optimization_node <- function(optimization_context, start_params, logging) {
       par = setNames(rep(NA_real_, length(start_params)), names(start_params))
     )
   } else {
-    if (logging) {
+    if (optimization_context$logging) {
       logger::log_info(sprintf(
         "Node complete - Final negLogLik: %.4f",
         node_fit$value
