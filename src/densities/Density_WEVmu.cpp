@@ -37,6 +37,7 @@ double integrate_v_over_zr_WEVmu(Rcpp::NumericVector params, double a, double b,
                                  double t, double step_width);
 
 // function implementations
+[[maybe_unused]]
 double density_WEVmu2(double rt, Rcpp::NumericVector params, int boundary,
                       int stopon0) {
   if (boundary == 1) {

@@ -207,7 +207,7 @@ optimization_node <- function(optimization_context, start_params, logging) {
 
   if (is.null(node_fit)) {
     if (logging) {
-      logger::log_warning("Node failed to find valid fit across all restarts")
+      logger::log_warn("Node failed to find valid fit across all restarts")
     }
     list(
       value = NA_real_,

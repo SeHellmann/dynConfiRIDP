@@ -1,3 +1,13 @@
 PKG_CPPFLAGS = -I./densities
-SOURCES = $(wildcard *.cpp densities/*.cpp)
+
+SOURCES = RcppExports.cpp \
+    nlopt_optimizer.cpp \
+    utils/model_context.cpp \
+    utils/validate_params.cpp \
+    densities/density_2DSD.cpp \
+    densities/density_IRM.cpp \
+    densities/density_PCRM.cpp \
+    densities/density_WEVmu.cpp \
+    densities/rng_WEV.cpp
+
 OBJECTS = $(SOURCES:.cpp=.o)

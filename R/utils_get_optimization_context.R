@@ -33,6 +33,7 @@ get_dynwev_optimization_context <- function(context) {
     sym_thetas = context$sym_thetas,
 
     optim_method = context$optim_method,
-    opts = context$opts
+    opts = context$opts,
+    logging = context$logging
   )
 }

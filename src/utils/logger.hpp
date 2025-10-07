@@ -4,7 +4,15 @@
 #include <string>
 
 namespace Logger {
+    static bool logging = false;
+
+    inline void init(bool enabled) {
+        logging = enabled;
+    }
+
     inline void log(const std::string& level, const std::string& msg) {
+        if (!logging) return;
+
         try {
             Rcpp::Function log_fn = Rcpp::Environment::namespace_env("logger")[std::string("log_") + level];
             log_fn(msg);

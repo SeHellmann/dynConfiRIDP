@@ -1,8 +1,5 @@
 #include "model_context.hpp"
-#include "densities/validate_params.h"
-#include "Rcpp/vector/instantiation.h"
-#include "current/armadillo"
-#include <cstddef>
+#include "validate_params.h"
 #include <map>
 #include <string>
 #include <regex>
