@@ -1,4 +1,5 @@
 PKG_CPPFLAGS = -I./densities
+CXX_STD = CXX17
 
 SOURCES = RcppExports.cpp \
     nlopt_optimizer.cpp \
