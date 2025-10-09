@@ -30,9 +30,11 @@
 #'   log_threshold
 #' @importFrom future
 #'   plan
-#'   multisession
 #'   sequential
+#'   multisession
+#'   multicore
 #'   availableCores
+#'   supportsMulticore
 #' @importFrom future.apply
 #'   future_lapply
 #' @importFrom stats

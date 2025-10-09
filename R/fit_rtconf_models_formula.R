@@ -78,20 +78,23 @@ fit_rtconf_models_formula <- function(
     res
   }
 
-  if (parallel) {
-    n_cores <- if (is.null(n_cores)) availableCores() - 1 else n_cores
-    plan(multisession, workers = n_cores)
-  } else {
-    plan(sequential)
-  }
+  # TODO: integrate better with fit_rtconf_formula setup
+  context <- list(
+    logging = logging,
+    parallel = parallel,
+    n_cores = n_cores
+  )
 
-  on.exit(plan(sequential), add = TRUE)
+  setup_logging(context)
+  setup_parallel(context)
+
+
+  if (parallel) on.exit(plan(sequential), add = TRUE)
 
   res <- future_lapply(
     jobs_list,
     function(job) call_fitfct(job),
     future.seed = TRUE,
-    future.packages = "logger"
   )
 
   res

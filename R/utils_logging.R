@@ -56,12 +56,12 @@ get_log_paths <- function(model_dir, model_name, participant_id) {
 setup_log_layout <- function(model_name, participant_id) {
   logger::layout_glue_generator(
     format = paste(
-      "[{level}]",
       "[{format(time, \"%H:%M:%S\")}]",
       "[PID: {pid}]",
+      "[{level}]",
       "[{fn}]",
-      paste0("[SUBJ: ", participant_id, "]"),
-      paste0("[MODEL: ", model_name, "]:"),
+      paste0("[MODEL: ", model_name, "]"),
+      paste0("[SUBJ: ", participant_id, "]:"),
       "{msg}"
     )
   )

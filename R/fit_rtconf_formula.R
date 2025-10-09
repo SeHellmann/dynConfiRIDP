@@ -21,15 +21,12 @@ fit_rtconf_formula <- function(
   context <- args |>
     fit_context() |>
     setup_logging() |>
+    setup_parallel() |>
     get_model_params() |>
     process_input_data() |>
     build_model_matrix()
 
-  if (parallel) {
-    n_cores <- if (is.null(n_cores)) availableCores() - 1 else n_cores
-    plan(multisession, workers = n_cores)
-    on.exit(plan(sequential), add = TRUE)
-  }
+  if (context$parallel) on.exit(future::plan(sequential), add = TRUE)
 
   return(switch(context$model_type,
     "dynWEV" = fitting_dynwev_formula(context),
