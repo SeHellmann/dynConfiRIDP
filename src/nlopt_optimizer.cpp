@@ -73,13 +73,13 @@ double neg_loglikelihood_formula(
 }
 
 // [[Rcpp::export]]
-Rcpp::List nlopt_optimizer(const Rcpp::List& optim_context, Rcpp::NumericVector start_params) {
+Rcpp::List nlopt_optimizer(const Rcpp::List& optimization_context_dto, Rcpp::NumericVector start_params) {
     try {
-        OptimizationContext optimization_context(optim_context);
+        OptimizationContext optimization_context(optimization_context_dto);
     
-        Logger::init(Rcpp::as<bool>(optim_context["logging"]));
+        Logger::init(Rcpp::as<bool>(optimization_context_dto["logging"]));
 
-        std::string optim_method = Rcpp::as<std::string>(optim_context["optim_method"]);
+        std::string optim_method = Rcpp::as<std::string>(optimization_context_dto["optim_method"]);
         unsigned n_params = start_params.size();
 
         std::stringstream ss;
@@ -105,7 +105,7 @@ Rcpp::List nlopt_optimizer(const Rcpp::List& optim_context, Rcpp::NumericVector 
 
         nlopt_set_min_objective(opt, neg_loglikelihood_formula, &optimization_context);
         
-        Rcpp::List opts = Rcpp::as<Rcpp::List>(optim_context["opts"]);
+        Rcpp::List opts = Rcpp::as<Rcpp::List>(optimization_context_dto["opts"]);
         double reltol = Rcpp::as<double>(opts["reltol"]);
 
         nlopt_set_ftol_rel(opt, reltol);
@@ -165,7 +165,7 @@ Rcpp::List nlopt_optimizer(const Rcpp::List& optim_context, Rcpp::NumericVector 
 }
 
 // [[Rcpp::export]]
-double grid_search_worker(const Rcpp::List& optim_context, Rcpp::NumericVector params) {
-    OptimizationContext optimization_context(optim_context);
+double grid_search_worker(const Rcpp::List& optimization_context_dto, Rcpp::NumericVector params) {
+    OptimizationContext optimization_context(optimization_context_dto);
     return neg_loglikelihood_formula(params.size(), params.begin(), NULL, &optimization_context);
 }

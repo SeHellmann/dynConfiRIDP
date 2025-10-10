@@ -12,26 +12,26 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
 // nlopt_optimizer
-Rcpp::List nlopt_optimizer(const Rcpp::List& optim_context, Rcpp::NumericVector start_params);
-RcppExport SEXP _dynConfiRIDP_nlopt_optimizer(SEXP optim_contextSEXP, SEXP start_paramsSEXP) {
+Rcpp::List nlopt_optimizer(const Rcpp::List& optimization_context_dto, Rcpp::NumericVector start_params);
+RcppExport SEXP _dynConfiRIDP_nlopt_optimizer(SEXP optimization_context_dtoSEXP, SEXP start_paramsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const Rcpp::List& >::type optim_context(optim_contextSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type optimization_context_dto(optimization_context_dtoSEXP);
     Rcpp::traits::input_parameter< Rcpp::NumericVector >::type start_params(start_paramsSEXP);
-    rcpp_result_gen = Rcpp::wrap(nlopt_optimizer(optim_context, start_params));
+    rcpp_result_gen = Rcpp::wrap(nlopt_optimizer(optimization_context_dto, start_params));
     return rcpp_result_gen;
 END_RCPP
 }
 // grid_search_worker
-double grid_search_worker(const Rcpp::List& optim_context, Rcpp::NumericVector params);
-RcppExport SEXP _dynConfiRIDP_grid_search_worker(SEXP optim_contextSEXP, SEXP paramsSEXP) {
+double grid_search_worker(const Rcpp::List& optimization_context_dto, Rcpp::NumericVector params);
+RcppExport SEXP _dynConfiRIDP_grid_search_worker(SEXP optimization_context_dtoSEXP, SEXP paramsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const Rcpp::List& >::type optim_context(optim_contextSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type optimization_context_dto(optimization_context_dtoSEXP);
     Rcpp::traits::input_parameter< Rcpp::NumericVector >::type params(paramsSEXP);
-    rcpp_result_gen = Rcpp::wrap(grid_search_worker(optim_context, params));
+    rcpp_result_gen = Rcpp::wrap(grid_search_worker(optimization_context_dto, params));
     return rcpp_result_gen;
 END_RCPP
 }

@@ -16,7 +16,7 @@ DEFAULT_OPTS <- list(
 
 #' @keywords internal
 #' @noRd
-fit_context <- function(args) {
+get_base_context <- function(args) {
   list(
     #### initial inputs
     data = args$data,

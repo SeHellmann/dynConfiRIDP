@@ -15,14 +15,6 @@ validate_rtconf_args <- function(
   parallel,
   n_cores
 ) {
-  # data
-  assert_that(
-    is.data.frame(data),
-    msg = sprintf(
-      "`data` must be a data frame\nGot: %s",
-      describe(data)
-    )
-  )
   # model
   assert_that(
     is.string(model),
@@ -37,6 +29,161 @@ validate_rtconf_args <- function(
       "`model` must be one of the supported models:\n%s\nGot: %s",
       paste(MODELS, collapse = ", "),
       model
+    )
+  )
+  # manipulations
+  assert_that(
+    is.list(manipulations),
+    all(sapply(manipulations, inherits, "formula")),
+    all(sapply(manipulations, function(x) length(all.vars(x[[2]])) > 0)),
+    msg = sprintf(
+      "`manipulations` must be a list of formulas of the form LHS ~ RHS\nGot: %s",
+      describe(manipulations)
+    )
+  )
+
+  validate_rtconf_common_args(
+    data,
+    optim_method,
+    fixed,
+    n_ratings,
+    restr_tau,
+    sym_thetas,
+    precision,
+    opts,
+    grid_search,
+    logging,
+    parallel,
+    n_cores
+  )
+}
+
+#' @keywords internal
+validate_rtconf_models_args <- function(
+  data,
+  models,
+  optim_method,
+  fixed,
+  manipulations,
+  n_ratings,
+  restr_tau,
+  sym_thetas,
+  precision,
+  opts,
+  grid_search,
+  logging,
+  parallel,
+  n_cores
+) {
+  # models
+  assert_that(
+    is.character(models),
+    all(vapply(models, is.string, logical(1))),
+    msg = sprintf(
+      "`models` must be a character vector\nGot: %s",
+      describe(models)
+    )
+  )
+  assert_that(
+    all(models %in% MODELS),
+    msg = sprintf(
+      "`models` must all be one of the supported models:\n%s\nGot: %s",
+      paste(MODELS, collapse = ", "),
+      paste(models, collapse = ", ")
+    )
+  )
+  # manipulations
+  assert_that(
+    is.list(manipulations),
+    msg = sprintf(
+      "`manipulations` must be a list\nGot: %s",
+      describe(manipulations)
+    )
+  )
+  # either a single list of formulas (each element is a formula), or
+  # a list of lists where each inner list is a list of formulas matching models length
+  if (length(manipulations) > 0) {
+    if (inherits(manipulations[[1]], "formula")) {
+      # single list of formulas, check each element
+      assert_that(
+        all(vapply(manipulations, inherits, "formula", logical(1))),
+        all(vapply(manipulations, function(x) length(all.vars(x[[2]])) > 0, logical(1))),
+        msg = sprintf(
+          "`manipulations` must be a list of formulas of the form LHS ~ RHS\nGot: %s",
+          describe(manipulations)
+        )
+      )
+    } else {
+      # manipulations is a list of lists
+      assert_that(
+        length(manipulations) == length(models),
+        msg = sprintf(
+          "`manipulations` must be a list of lists matching length of models\nGot length: %d, Expected length: %d",
+          length(manipulations), length(models)
+        )
+      )
+      for (m in seq_along(manipulations)) {
+        inner_manip <- manipulations[[m]]
+        assert_that(
+          is.list(inner_manip),
+          msg = sprintf(
+            "Each element of manipulations must be a list, but manipulations[[%d]] is not\nGot: %s",
+            m,
+            describe(inner_manip)
+          )
+        )
+        if (length(inner_manip) > 0) {
+          assert_that(
+            all(sapply(inner_manip, inherits, "formula")),
+            all(sapply(inner_manip, function(x) length(all.vars(x[[2]])) > 0)),
+            msg = sprintf(
+              "All manipulations in manipulations[[%d]] must be formulas of the form LHS ~ RHS\nGot: %s",
+              m,
+              describe(inner_manip)
+            )
+          )
+        }
+      }
+    }
+  }
+
+  validate_rtconf_common_args(
+    data,
+    optim_method,
+    fixed,
+    n_ratings,
+    restr_tau,
+    sym_thetas,
+    precision,
+    opts,
+    grid_search,
+    logging,
+    parallel,
+    n_cores
+  )
+}
+
+#' @keywords internal
+validate_rtconf_common_args <- function(
+  data,
+  optim_method,
+  fixed,
+  n_ratings,
+  restr_tau,
+  sym_thetas,
+  precision,
+  opts,
+  grid_search,
+  logging,
+  parallel,
+  n_cores
+) {
+  # data
+  assert_that(
+    is.data.frame(data),
+    msg = sprintf(
+      "`data` must be a data frame\nGot: %s",
+      describe(data)
     )
   )
   # optim_method
@@ -64,16 +211,6 @@ validate_rtconf_args <- function(
     msg = sprintf(
       "`fixed` must be a named list\nGot: %s",
       describe(fixed)
-    )
-  )
-  # manipulations
-  assert_that(
-    is.list(manipulations),
-    all(sapply(manipulations, inherits, "formula")),
-    all(sapply(manipulations, function(x) length(all.vars(x[[2]])) > 0)),
-    msg = sprintf(
-      "`manipulations` must be a list of formulas of the form LHS ~ RHS\nGot: %s",
-      describe(manipulations)
     )
   )
   # n_ratings
@@ -144,124 +281,6 @@ validate_rtconf_args <- function(
       describe(logging)
     )
   )
-  # parallel
-  assert_that(
-    is.logical(parallel),
-    length(parallel) == 1,
-    msg = sprintf(
-      "`parallel` must be a single logical value\nGot: %s",
-      describe(parallel)
-    )
-  )
-  # n_cores
-  assert_that(
-    is.null(n_cores) || (
-      is.numeric(n_cores) &&
-      length(n_cores) == 1 &&
-      n_cores %% 1 == 0 &&
-      n_cores >= 1
-    ),
-    msg = sprintf(
-      "`n_cores` must be NULL or an integer >= 1\nGot: %s",
-      describe(n_cores)
-    )
-  )
-}
-
-#' @keywords internal
-validate_rtconf_models_args <- function(
-    models,
-    optim_method,
-    manipulations,
-    parallel,
-    n_cores) {
-  # models
-  assert_that(
-    is.character(models),
-    all(vapply(models, is.string, logical(1))),
-    msg = sprintf(
-      "`models` must be a character vector\nGot: %s",
-      describe(models)
-    )
-  )
-  assert_that(
-    all(models %in% MODELS),
-    msg = sprintf(
-      "`models` must all be one of the supported models:\n%s\nGot: %s",
-      paste(MODELS, collapse = ", "),
-      paste(models, collapse = ", ")
-    )
-  )
-  # optim_method
-  assert_that(
-    is.string(optim_method),
-    msg = sprintf(
-      "`optim_method` must be a string\nGot: %s",
-      describe(optim_method)
-    )
-  )
-  assert_that(
-    optim_method %in% OPTIM_METHODS,
-    msg = sprintf(
-      "`optim_method` must be one of the supported optim_methods:\n%s\nGot: %s",
-      paste(OPTIM_METHODS, collapse = ", "),
-      optim_method
-    )
-  )
-  # manipulations
-  assert_that(
-    is.list(manipulations),
-    msg = sprintf(
-      "`manipulations` must be a list\nGot: %s",
-      describe(manipulations)
-    )
-  )
-  # either a single list of formulas (each element is a formula), or
-  # a list of lists where each inner list is a list of formulas matching models length
-  if (length(manipulations) > 0) {
-    if (inherits(manipulations[[1]], "formula")) {
-      # single list of formulas, check each element
-      assert_that(
-        all(vapply(manipulations, inherits, "formula", logical(1))),
-        all(vapply(manipulations, function(x) length(all.vars(x[[2]])) > 0, logical(1))),
-        msg = sprintf(
-          "`manipulations` must be a list of formulas of the form LHS ~ RHS\nGot: %s",
-          describe(manipulations)
-        )
-      )
-    } else {
-      # manipulations is a list of lists
-      assert_that(
-        length(manipulations) == length(models),
-        msg = sprintf(
-          "`manipulations` must be a list of lists matching length of models\nGot length: %d, Expected length: %d",
-          length(manipulations), length(models)
-        )
-      )
-      for (m in seq_along(manipulations)) {
-        inner_manip <- manipulations[[m]]
-        assert_that(
-          is.list(inner_manip),
-          msg = sprintf(
-            "Each element of manipulations must be a list, but manipulations[[%d]] is not\nGot: %s",
-            m,
-            describe(inner_manip)
-          )
-        )
-        if (length(inner_manip) > 0) {
-          assert_that(
-            all(sapply(inner_manip, inherits, "formula")),
-            all(sapply(inner_manip, function(x) length(all.vars(x[[2]])) > 0)),
-            msg = sprintf(
-              "All manipulations in manipulations[[%d]] must be formulas of the form LHS ~ RHS\nGot: %s",
-              m,
-              describe(inner_manip)
-            )
-          )
-        }
-      }
-    }
-  }
   # parallel
   assert_that(
     is.logical(parallel),

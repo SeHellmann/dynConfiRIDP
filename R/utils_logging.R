@@ -25,7 +25,7 @@ extract_participant_id <- function(data) {
   potential_sbj_cols <- c("sbj", "participant", "subject")
   sbjcol <- potential_sbj_cols[potential_sbj_cols %in% names(data)][1]
 
-  if (!is.null(sbjcol)) {
+  if (!is.na(sbjcol)) {
     unique_participants <- unique(data[[sbjcol]])
     if (length(unique_participants) == 1) {
       participant <- unique_participants[1]

@@ -18,22 +18,29 @@ fit_rtconf_formula <- function(
   args <- as.list(environment())
   do.call(validate_rtconf_args, args)
 
-  context <- args |>
-    fit_context() |>
+  base_context <- args |>
+    get_base_context() |>
     setup_logging() |>
-    setup_parallel() |>
+    setup_parallel()
+
+  if (base_context$parallel) on.exit(future::plan(sequential), add = TRUE)
+
+  fit_rtconf_formula_dispatcher(base_context)
+}
+
+#' @keywords internal
+fit_rtconf_formula_dispatcher <- function(base_context) {
+  context <- base_context |>
     get_model_params() |>
     process_input_data() |>
     build_model_matrix()
 
-  if (context$parallel) on.exit(future::plan(sequential), add = TRUE)
-
-  return(switch(context$model_type,
+  switch(context$model_type,
     "dynWEV" = fitting_dynwev_formula(context),
     "RM" = stop(sprintf("Model: %s not yet implemented", context$model)),
     stop(sprintf(
       "Model not known. Supported models are: %s",
       paste(DYNWEV_MODELS, collapse = ", ")
     ))
-  ))
+  )
 }
