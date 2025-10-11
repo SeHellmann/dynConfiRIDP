@@ -71,25 +71,5 @@ process_input_data <- function(context) {
 
   context$maxt0 <- min(rt)
 
-  # thetas_parnames
-  base_names <- if (context$sym_thetas) "theta" else c("thetaLower", "thetaUpper")
-  if (context$n_ratings <= 2) {
-    thetas_parnames <- base_names
-  } else {
-    first_thetas <- paste0(base_names, "1")
-    dtheta_indices <- 2:(context$n_ratings - 1)
-    dthetas <- if (context$sym_thetas) {
-      paste0("dtheta", dtheta_indices)
-    } else {
-      paste0(
-        "dtheta",
-        rep(c("Lower", "Upper"), times = context$n_ratings - 2),
-        rep(dtheta_indices, each = 2)
-      )
-    }
-    thetas_parnames <- c(first_thetas, dthetas)
-  }
-  context$thetas_parnames <- thetas_parnames
-
   context
 }

@@ -1,4 +1,4 @@
-#include "model_context.hpp"
+#include "optimization_context.hpp"
 #include "validate_params.h"
 #include <map>
 #include <string>
@@ -46,11 +46,16 @@ OptimizationContext::OptimizationContext(const Rcpp::List& optimization_context)
         auto it = param_map.find(std::string(formula_names[i]));
         if (it != param_map.end()) {
             FormulaParam formula_param = { it->second };
-            Rcpp::List components = formula_list[i];
-            for (int j = 0; j < components.size(); ++j) {
-                Rcpp::IntegerVector indices = components[j];
-                formula_param.beta_indices.push_back(Rcpp::as<arma::uvec>(indices) - 1);
+
+            Rcpp::List components = Rcpp::as<Rcpp::List>(formula_list[i]);
+            if (components.containsElementNamed("beta_indices")) {
+                formula_param.beta_indices = Rcpp::as<arma::uvec>(components["beta_indices"]) - 1;
             }
+
+            if (components.containsElementNamed("model_matrix_indices")) {
+                formula_param.model_matrix_indices = Rcpp::as<arma::uvec>(components["model_matrix_indices"]) - 1;
+            }
+
             formula_params.push_back(formula_param);
         }
     }
@@ -83,10 +88,11 @@ ModelParameters OptimizationContext::get_trial_params(int trial_idx, const arma:
     if (!formula_params.empty()) {
         arma::rowvec trial_row = model_matrix.row(trial_idx);
         for (const auto& formula_param : formula_params) {
-            double accumulated_value = 0.0;
-            for (const auto& indices : formula_param.beta_indices) {
-                accumulated_value += arma::dot(trial_row.elem(indices), beta.elem(indices));
-            }
+            double accumulated_value = arma::dot(
+                trial_row.elem(formula_param.model_matrix_indices),
+                beta.elem(formula_param.beta_indices)
+            );
+            
             *get_param_pointer(params, formula_param.type) = accumulated_value;
         }
     }
@@ -177,7 +183,6 @@ arma::vec OptimizationContext::calculate_asym_thetas(const arma::vec& beta) cons
 
 void ModelParameters::apply_transformations(const OptimizationContext& optimization_context) {
     // fixed01
-    // TODO: check if fixed
     z = R::pnorm(z, 0, 1, 1, 0);
     sz = R::pnorm(sz, 0, 1, 1, 0);
     w = R::pnorm(w, 0, 1, 1, 0);

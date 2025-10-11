@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 #include "densities/density_WEVmu.h"
-#include "utils/model_context.hpp"
+#include "utils/optimization_context.hpp"
 #include "utils/logger.hpp"
 
 static int eval_count = 0;

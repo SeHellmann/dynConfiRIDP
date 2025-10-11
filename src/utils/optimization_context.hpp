@@ -45,7 +45,8 @@ private:
     struct EstimatedParam { ParamType type; int beta_index; };
     struct FormulaParam {
         ParamType type;
-        std::vector<arma::uvec> beta_indices;
+        arma::uvec beta_indices;
+        arma::uvec model_matrix_indices;
     };
 
     std::vector<FixedParam> fixed_params;

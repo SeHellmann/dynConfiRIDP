@@ -3,7 +3,7 @@ CXX_STD = CXX17
 
 SOURCES = RcppExports.cpp \
     nlopt_optimizer.cpp \
-    utils/model_context.cpp \
+    utils/optimization_context.cpp \
     utils/validate_params.cpp \
     densities/density_2DSD.cpp \
     densities/density_IRM.cpp \

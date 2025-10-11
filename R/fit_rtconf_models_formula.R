@@ -27,15 +27,13 @@ fit_rtconf_models_formula <- function(
   base_context <- jobs_setup_res$context
   jobs_list <- jobs_setup_res$jobs_list
 
-  if (parallel) on.exit(plan(sequential), add = TRUE)
+  if (base_context$parallel) on.exit(future::plan(sequential), add = TRUE)
 
-  res <- future_lapply(
+  future_lapply(
     jobs_list,
     function(job) fit_rtconf_formula_worker(base_context, job),
     future.seed = TRUE,
   )
-
-  res
 }
 
 #' @keywords internal

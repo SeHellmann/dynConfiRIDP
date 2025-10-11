@@ -31,8 +31,8 @@ fit_rtconf_formula <- function(
 #' @keywords internal
 fit_rtconf_formula_dispatcher <- function(base_context) {
   context <- base_context |>
-    get_model_params() |>
     process_input_data() |>
+    get_model_params() |>
     build_model_matrix()
 
   switch(context$model_type,

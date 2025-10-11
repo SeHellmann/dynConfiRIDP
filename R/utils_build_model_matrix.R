@@ -1,23 +1,27 @@
 #' @keywords internal
 build_model_matrix <- function(context) {
   # add constant columns for missing manipulated parameters
-  for (p in context$manipulated_parnames) {
+  for (p in names(context$manipulations)) {
     if (!p %in% names(context$data)) context$data[[p]] <- 1
   }
 
   # exit early if there are no manipulations
   if (length(context$manipulations) == 0) {
     context$model_matrix <- matrix(nrow = nrow(context$data), ncol = 0)
-    context$beta_map <- setNames(integer(0), character(0))
-    context$beta_names <- c(context$const_parnames, context$thetas_parnames)
+    context$formula_params <- list()
     return(context)
+  }
+
+  # add constant columns for missing manipulated parameters
+  for (p in names(context$manipulations)) {
+    if (!p %in% names(context$data)) context$data[[p]] <- 1
   }
 
   individual_matrices <- list()
   all_predictor_names <- list()
   all_beta_names <- list()
 
-  for (p in context$manipulated_parnames) {
+  for (p in names(context$manipulations)) {
     mat <- model.matrix(context$manipulations[[p]], context$data)
     mat_colnames <- colnames(mat)
 
@@ -36,9 +40,22 @@ build_model_matrix <- function(context) {
   context$model_matrix <- full_model_matrix[, is_unique, drop = FALSE]
 
   beta_map_indices <- match(flat_predictors, unique_predictors)
-  context$beta_map <- split(beta_map_indices, flat_betas)
+  beta_map <- split(beta_map_indices, flat_betas)
 
-  context$beta_names <- c(unique(flat_betas), context$const_parnames, context$thetas_parnames)
+  context$beta_names <- c(context$beta_names, unique(flat_betas))
+
+  context$formula_params <- list()
+  for (p in names(context$manipulations)) {
+    prefix <- paste0(p, "_")
+    component_names <- names(beta_map)[startsWith(names(beta_map), prefix)]
+    if (length(component_names) > 0) {
+
+      context$formula_params[[p]] <- list(
+        beta_indices = match(component_names, context$beta_names),
+        model_matrix_indices = unlist(beta_map[component_names], use.names = FALSE)
+      )
+    }
+  }
 
   context
 }

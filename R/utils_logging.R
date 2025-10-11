@@ -10,7 +10,6 @@ setup_logging <- function(context) {
   logger::log_appender(logger::appender_file(paths$log_file), index = 2)
   logger::log_threshold(logger::DEBUG, index = 2)
 
-  context$log_file <- paths$log_file
   context$data_file <- paths$data_file
 
   logger::log_info(sprintf("Logging initialized: %s", paths$log_file))
