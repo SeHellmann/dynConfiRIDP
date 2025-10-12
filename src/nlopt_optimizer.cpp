@@ -76,43 +76,38 @@ double neg_loglikelihood_formula(
 Rcpp::List nlopt_optimizer(const Rcpp::List& optimization_context_dto, Rcpp::NumericVector start_params) {
     try {
         OptimizationContext optimization_context(optimization_context_dto);
-    
-        Logger::init(Rcpp::as<bool>(optimization_context_dto["logging"]));
+        Logger::init(optimization_context.logging);
 
-        std::string optim_method = Rcpp::as<std::string>(optimization_context_dto["optim_method"]);
         unsigned n_params = start_params.size();
 
         std::stringstream ss;
-        ss << "Starting NLopt optimization with method " << optim_method 
+        ss << "Starting NLopt optimization with method " << optimization_context.optim_method 
            << " and " << n_params << " parameters";
         Logger::info(ss.str());
         
         nlopt_opt opt;
-        if (optim_method == "Nelder-Mead") {
+        if (optimization_context.optim_method == "Nelder-Mead") {
             opt = nlopt_create(NLOPT_LN_NELDERMEAD, n_params);
 
             std::vector<double> step(n_params, 0.02);
             nlopt_set_initial_step(opt, step.data());
-        } else if (optim_method == "bobyqa") {
+        } else if (optimization_context.optim_method == "bobyqa") {
             opt = nlopt_create(NLOPT_LN_BOBYQA, n_params);
 
             std::vector<double> step(n_params, 2);
             nlopt_set_initial_step(opt, step.data());
         } else {
-            Logger::error("Unsupported optimization method: " + optim_method);
+            Logger::error("Unsupported optimization method: " + optimization_context.optim_method);
             Rcpp::stop("Unsupported optimization method provided.");
         }
 
         nlopt_set_min_objective(opt, neg_loglikelihood_formula, &optimization_context);
-        
-        Rcpp::List opts = Rcpp::as<Rcpp::List>(optimization_context_dto["opts"]);
-        double reltol = Rcpp::as<double>(opts["reltol"]);
 
-        nlopt_set_ftol_rel(opt, reltol);
-        nlopt_set_xtol_rel(opt, reltol);
+        nlopt_set_ftol_rel(opt, optimization_context.opts.reltol);
+        nlopt_set_xtol_rel(opt, optimization_context.opts.reltol);
         nlopt_set_ftol_abs(opt, 1e-10);
         nlopt_set_xtol_abs1(opt, 1e-10);
-        nlopt_set_maxeval(opt, Rcpp::as<int>(opts["maxfun"]));
+        nlopt_set_maxeval(opt, optimization_context.opts.maxfun);
         nlopt_set_maxtime(opt, 3600);
 
         std::vector<double> x = Rcpp::as<std::vector<double>>(start_params);

@@ -1,6 +1,6 @@
 library(dplyr)
 
-parallel <- TRUE
+parallel <- FALSE
 n_cores <- 2
 
 if (parallel) {

@@ -21,12 +21,12 @@ fitting_dynwev_formula <- function(context) {
 
   # initial setup logging
   if (context$logging) {
-    logger::log_info(sprintf("Model: %s", context$model))
-    logger::log_info(sprintf("Data rows: %d", nrow(context$data)))
+    log_info(sprintf("Model: %s", context$model))
+    log_info(sprintf("Data rows: %d", nrow(context$data)))
   }
 
   if ("st0" %in% context$beta_names) {
-    if (context$logging) logger::log_info("Rescaling st0 initials to improve integration time")
+    if (context$logging) log_info("Rescaling st0 initials to improve integration time")
     inits[, "st0"] <- inits[, "st0"] / 2 - 1.6
   }
 
@@ -34,11 +34,11 @@ fitting_dynwev_formula <- function(context) {
   log_likelihood <- NULL
   if (context$grid_search) {
     if (context$logging) {
-      logger::log_info(sprintf(
+      log_info(sprintf(
         "%d parameter sets to check for %d rows of data",
         nrow(inits), nrow(context$dependent_vars)
       ))
-      logger::log_info("Starting grid search...")
+      log_info("Starting grid search...")
     }
 
     inits_rows <- lapply(seq_len(nrow(inits)), function(i) inits[i, ])
@@ -52,7 +52,7 @@ fitting_dynwev_formula <- function(context) {
     inits <- inits[order(log_likelihood), ]
 
     if (context$logging) {
-      logger::log_success(sprintf(
+      log_success(sprintf(
         "Grid search complete - Best negLogLik: %.4f",
         min(log_likelihood)
       ))
@@ -66,7 +66,7 @@ fitting_dynwev_formula <- function(context) {
 
   #### optimization ####
   if (context$logging) {
-    logger::log_info(sprintf(
+    log_info(sprintf(
       "Starting optimization with %d attempts",
       context$opts$n_attempts
     ))
@@ -106,9 +106,9 @@ fitting_dynwev_formula <- function(context) {
     res <- build_result_list(context, fit)
 
     if (context$logging) {
-      logger::log_success("Optimization complete")
-      logger::log_info(sprintf("Final negLogLik: %.4f", res$negLogLik))
-      logger::log_info(sprintf("BIC: %.4f", res$BIC))
+      log_success("Optimization complete")
+      log_info(sprintf("Final negLogLik: %.4f", res$negLogLik))
+      log_info(sprintf("BIC: %.4f", res$BIC))
       save_optimization_state(context,
         list(fit = fit, results = res),
         type = "final"
@@ -116,7 +116,7 @@ fitting_dynwev_formula <- function(context) {
     }
   } else {
     if (context$logging) {
-      logger::log_warn("No valid fit obtained - all attempts returned NA")
+      log_warn("No valid fit obtained - all attempts returned NA")
     } else {
       warning("No valid fit could be obtained, all optimization attempts returned NA")
     }
@@ -128,7 +128,7 @@ fitting_dynwev_formula <- function(context) {
 #' @keywords internal
 optimization_node <- function(optimization_context, start_params) {
   if (optimization_context$logging) {
-    logger::log_info(sprintf(
+    log_info(sprintf(
       "Starting optimization node with %d restarts - Initial params: %s",
       optimization_context$opts$n_restarts,
       paste(names(start_params), sprintf("%.4f", start_params),
@@ -146,7 +146,7 @@ optimization_node <- function(optimization_context, start_params) {
       rnorm(length(start_params), sd = pmax(0.001, abs(start_params / 20)))
 
     if (optimization_context$logging) {
-      logger::log_info(sprintf(
+      log_info(sprintf(
         "Restart %d/%d - Jittered params: %s",
         j, optimization_context$opts$n_restarts,
         paste(
@@ -161,7 +161,7 @@ optimization_node <- function(optimization_context, start_params) {
       nlopt_optimizer(optimization_context, jittered_params)
     }, error = function(e) {
       if (optimization_context$logging) {
-        logger::log_error(sprintf(
+        log_error(sprintf(
           "Optimization failed on restart %d: %s",
           j, e$message
         ))
@@ -174,7 +174,7 @@ optimization_node <- function(optimization_context, start_params) {
       best_value <- current_fit$value
 
       if (optimization_context$logging) {
-        logger::log_success(sprintf(
+        log_success(sprintf(
           "New best fit on restart %d - negLogLik: %s - Params: %s",
           j, sprintf("%.4f", best_value),
           paste(names(current_fit$par), sprintf("%.4f", current_fit$par),
@@ -191,7 +191,7 @@ optimization_node <- function(optimization_context, start_params) {
 
   if (is.null(node_fit)) {
     if (optimization_context$logging) {
-      logger::log_warn("Node failed to find valid fit across all restarts")
+      log_warn("Node failed to find valid fit across all restarts")
     }
     list(
       value = NA_real_,
@@ -199,7 +199,7 @@ optimization_node <- function(optimization_context, start_params) {
     )
   } else {
     if (optimization_context$logging) {
-      logger::log_info(sprintf(
+      log_info(sprintf(
         "Node complete - Final negLogLik: %.4f",
         node_fit$value
       ))

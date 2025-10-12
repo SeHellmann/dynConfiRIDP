@@ -6,14 +6,14 @@ setup_logging <- function(context) {
   model_dir <- setup_log_dirs(context$model)
   paths <- get_log_paths(model_dir, context$model, participant_id)
 
-  logger::log_layout(setup_log_layout(context$model, participant_id))
-  logger::log_appender(logger::appender_file(paths$log_file), index = 2)
-  logger::log_threshold(logger::DEBUG, index = 2)
+  log_layout(setup_log_layout(context$model, participant_id))
+  log_appender(appender_file(paths$log_file), index = 2)
+  log_threshold(DEBUG, index = 2)
 
   context$data_file <- paths$data_file
 
-  logger::log_info(sprintf("Logging initialized: %s", paths$log_file))
-  logger::log_info(sprintf("Data file location: %s", paths$data_file))
+  log_info(sprintf("Logging initialized: %s", paths$log_file))
+  log_info(sprintf("Data file location: %s", paths$data_file))
 
   context
 }
@@ -53,7 +53,7 @@ get_log_paths <- function(model_dir, model_name, participant_id) {
 
 #' @keywords internal
 setup_log_layout <- function(model_name, participant_id) {
-  logger::layout_glue_generator(
+  layout_glue_generator(
     format = paste(
       "[{format(time, \"%H:%M:%S\")}]",
       "[PID: {pid}]",

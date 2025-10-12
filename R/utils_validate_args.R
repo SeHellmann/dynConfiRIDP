@@ -1,64 +1,4 @@
 #' @keywords internal
-validate_rtconf_args <- function(
-  data,
-  model,
-  optim_method,
-  fixed,
-  manipulations,
-  n_ratings,
-  restr_tau,
-  sym_thetas,
-  precision,
-  opts,
-  grid_search,
-  logging,
-  parallel,
-  n_cores
-) {
-  # model
-  assert_that(
-    is.string(model),
-    msg = sprintf(
-      "`model` must be a string\nGot: %s",
-      describe(model)
-    )
-  )
-  assert_that(
-    model %in% MODELS,
-    msg = sprintf(
-      "`model` must be one of the supported models:\n%s\nGot: %s",
-      paste(MODELS, collapse = ", "),
-      model
-    )
-  )
-  # manipulations
-  assert_that(
-    is.list(manipulations),
-    all(sapply(manipulations, inherits, "formula")),
-    all(sapply(manipulations, function(x) length(all.vars(x[[2]])) > 0)),
-    msg = sprintf(
-      "`manipulations` must be a list of formulas of the form LHS ~ RHS\nGot: %s",
-      describe(manipulations)
-    )
-  )
-
-  validate_rtconf_common_args(
-    data,
-    optim_method,
-    fixed,
-    n_ratings,
-    restr_tau,
-    sym_thetas,
-    precision,
-    opts,
-    grid_search,
-    logging,
-    parallel,
-    n_cores
-  )
-}
-
-#' @keywords internal
 validate_rtconf_models_args <- function(
   data,
   models,
@@ -146,6 +86,66 @@ validate_rtconf_models_args <- function(
       }
     }
   }
+
+  validate_rtconf_common_args(
+    data,
+    optim_method,
+    fixed,
+    n_ratings,
+    restr_tau,
+    sym_thetas,
+    precision,
+    opts,
+    grid_search,
+    logging,
+    parallel,
+    n_cores
+  )
+}
+
+#' @keywords internal
+validate_rtconf_args <- function(
+  data,
+  model,
+  optim_method,
+  fixed,
+  manipulations,
+  n_ratings,
+  restr_tau,
+  sym_thetas,
+  precision,
+  opts,
+  grid_search,
+  logging,
+  parallel,
+  n_cores
+) {
+  # model
+  assert_that(
+    is.string(model),
+    msg = sprintf(
+      "`model` must be a string\nGot: %s",
+      describe(model)
+    )
+  )
+  assert_that(
+    model %in% MODELS,
+    msg = sprintf(
+      "`model` must be one of the supported models:\n%s\nGot: %s",
+      paste(MODELS, collapse = ", "),
+      model
+    )
+  )
+  # manipulations
+  assert_that(
+    is.list(manipulations),
+    all(sapply(manipulations, inherits, "formula")),
+    all(sapply(manipulations, function(x) length(all.vars(x[[2]])) > 0)),
+    msg = sprintf(
+      "`manipulations` must be a list of formulas of the form LHS ~ RHS\nGot: %s",
+      describe(manipulations)
+    )
+  )
 
   validate_rtconf_common_args(
     data,
@@ -263,6 +263,64 @@ validate_rtconf_common_args <- function(
       describe(opts)
     )
   )
+  if (length(opts) > 0) {
+    invalid_opts <- setdiff(names(opts), names(DEFAULT_OPTS))
+    assert_that(
+      length(invalid_opts) == 0,
+      msg = sprintf(
+        "`opts` must be a list of supported options settings:\n%s\nGot: %s",
+        paste(names(DEFAULT_OPTS), collapse = ", "),
+        describe(opts)
+      )
+    )
+    if (!is.null(opts$n_attempts)) {
+      assert_that(
+        is.numeric(opts$n_attempts),
+        length(opts$n_attempts) == 1,
+        opts$n_attempts %% 1 == 0,
+        opts$n_attempts >= 1,
+        msg = sprintf(
+          "`opts$n_attempts` must be an integer >= 1\nGot: %s",
+          describe(opts$n_attempts)
+        )
+      )
+    }
+    if (!is.null(opts$n_restarts)) {
+      assert_that(
+        is.numeric(opts$n_restarts),
+        length(opts$n_restarts) == 1,
+        opts$n_restarts %% 1 == 0,
+        opts$n_restarts >= 1,
+        msg = sprintf(
+          "`opts$n_restarts` must be an integer >= 1\nGot: %s",
+          describe(opts$n_restarts)
+        )
+      )
+    }
+    if (!is.null(opts$maxfun)) {
+      assert_that(
+        is.numeric(opts$maxfun),
+        length(opts$maxfun) == 1,
+        opts$maxfun %% 1 == 0,
+        opts$maxfun >= 1,
+        msg = sprintf(
+          "`opts$maxfun` must be an integer >= 1\nGot: %s",
+          describe(opts$maxfun)
+        )
+      )
+    }
+    if (!is.null(opts$reltol)) {
+      assert_that(
+        is.numeric(opts$reltol),
+        length(opts$reltol) == 1,
+        opts$reltol > 0,
+        msg = sprintf(
+          "`opts$reltol` must be a single positive numeric value\nGot: %s",
+          describe(opts$reltol)
+        )
+      )
+    }
+  }
   # grid_search
   assert_that(
     is.logical(grid_search),

@@ -23,7 +23,7 @@ fit_rtconf_formula <- function(
     setup_logging() |>
     setup_parallel()
 
-  if (base_context$parallel) on.exit(future::plan(sequential), add = TRUE)
+  if (base_context$parallel) on.exit(plan(sequential), add = TRUE)
 
   fit_rtconf_formula_dispatcher(base_context)
 }

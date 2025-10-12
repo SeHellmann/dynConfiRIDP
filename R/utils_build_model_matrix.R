@@ -1,10 +1,5 @@
 #' @keywords internal
 build_model_matrix <- function(context) {
-  # add constant columns for missing manipulated parameters
-  for (p in names(context$manipulations)) {
-    if (!p %in% names(context$data)) context$data[[p]] <- 1
-  }
-
   # exit early if there are no manipulations
   if (length(context$manipulations) == 0) {
     context$model_matrix <- matrix(nrow = nrow(context$data), ncol = 0)

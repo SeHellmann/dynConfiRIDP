@@ -1,8 +1,9 @@
 #include "optimization_context.hpp"
+#include "Rcpp/vector/instantiation.h"
 #include "validate_params.h"
 #include <map>
 #include <string>
-#include <regex>
+#include <vector>
 
 static const std::map<std::string, ParamType> param_map = {
     {"a", ParamType::a}, {"v", ParamType::v}, {"t0", ParamType::t0},
@@ -12,67 +13,121 @@ static const std::map<std::string, ParamType> param_map = {
     {"sigvis", ParamType::sigvis}, {"svis", ParamType::svis}, {"s", ParamType::s}
 };
 
-OptimizationContext::OptimizationContext(const Rcpp::List& optimization_context) :
-    dependent_vars(Rcpp::as<arma::mat>(optimization_context["dependent_vars"])),
-    maxt0(Rcpp::as<double>(optimization_context["maxt0"])),
-    restr_tau(Rcpp::as<double>(optimization_context["restr_tau"])),
-    precision(Rcpp::as<double>(optimization_context["precision"])),
-    simult_conf(Rcpp::as<bool>(optimization_context["simult_conf"])),
-    model_matrix(Rcpp::as<arma::mat>(optimization_context["model_matrix"])),
-    n_ratings(Rcpp::as<int>(optimization_context["n_ratings"])),
-    sym_thetas(Rcpp::as<bool>(optimization_context["sym_thetas"]))
-{
-    Rcpp::List fixed_list = optimization_context["fixed_params"];
-    Rcpp::CharacterVector fixed_names = fixed_list.names();
-    for (int i = 0; i < fixed_list.size(); ++i) {
-        auto it = param_map.find(std::string(fixed_names[i]));
-        if (it != param_map.end()) {
-            fixed_params.push_back({ it->second, Rcpp::as<double>(fixed_list[i]) });
+OptimizationContext::OptimizationOptions OptimizationContext::parse_opts(const Rcpp::List& optimization_context_dto) {
+    OptimizationOptions opts;
+    if (optimization_context_dto.containsElementNamed("opts")) {
+        Rcpp::List opts_list = Rcpp::as<Rcpp::List>(optimization_context_dto["opts"]);
+        if (opts_list.containsElementNamed("maxfun")) {
+            opts.maxfun = Rcpp::as<int>(opts_list["maxfun"]);
+        }
+        if (opts_list.containsElementNamed("reltol")) {
+            opts.reltol = Rcpp::as<double>(opts_list["reltol"]);
         }
     }
-
-    Rcpp::List estimated_list = optimization_context["estimated_params"];
-    Rcpp::CharacterVector estimated_names = estimated_list.names();
-    for (int i = 0; i < estimated_list.size(); ++i) {
-        auto it = param_map.find(std::string(estimated_names[i]));
-        if (it != param_map.end()) {
-            estimated_params.push_back({ it->second, Rcpp::as<int>(estimated_list[i]) - 1 });
-        }
-    }
-
-    Rcpp::List formula_list = optimization_context["formula_params"];
-    Rcpp::CharacterVector formula_names = formula_list.names();
-    for (int i = 0; i < formula_list.size(); ++i) {
-        auto it = param_map.find(std::string(formula_names[i]));
-        if (it != param_map.end()) {
-            FormulaParam formula_param = { it->second };
-
-            Rcpp::List components = Rcpp::as<Rcpp::List>(formula_list[i]);
-            if (components.containsElementNamed("beta_indices")) {
-                formula_param.beta_indices = Rcpp::as<arma::uvec>(components["beta_indices"]) - 1;
-            }
-
-            if (components.containsElementNamed("model_matrix_indices")) {
-                formula_param.model_matrix_indices = Rcpp::as<arma::uvec>(components["model_matrix_indices"]) - 1;
-            }
-
-            formula_params.push_back(formula_param);
-        }
-    }
-
-    const Rcpp::CharacterVector beta_names = optimization_context["beta_names"];
-    const std::regex sym_theta_regex("^(d)?theta(?!Lower|Upper)");
-    for (int i = 0; i < beta_names.size(); ++i) {
-        std::string name(beta_names[i]);
-        if (name.find("thetaLower") != std::string::npos) {
-            lower_theta_indices.push_back(i);
-        } else if (name.find("thetaUpper") != std::string::npos) {
-            upper_theta_indices.push_back(i);
-        } else if (std::regex_search(name, sym_theta_regex)) {
-            sym_theta_indices.push_back(i);
-        }
-    }
+    return opts;
 }
+
+OptimizationContext::ThetaIndices OptimizationContext::parse_theta_indices(const Rcpp::List& optimization_context_dto) {
+    ThetaIndices theta_indices;
+    if (optimization_context_dto.containsElementNamed("beta_names")) {
+        const Rcpp::CharacterVector beta_names_list = optimization_context_dto["beta_names"];
+        for (int i = 0; i < beta_names_list.size(); ++i) {
+            std::string name(beta_names_list[i]);
+            if (name.find("thetaLower") != std::string::npos) {
+                theta_indices.lower.push_back(i);
+            } else if (name.find("thetaUpper") != std::string::npos) {
+                theta_indices.upper.push_back(i);
+            } else if (std::regex_search(name, THETA_REGEX)) {
+                theta_indices.sym.push_back(i);
+            }
+        }
+    }
+    return theta_indices;
+}
+
+std::vector<OptimizationContext::FixedParam> OptimizationContext::parse_fixed_params(const Rcpp::List& optimization_context_dto) {
+    std::vector<OptimizationContext::FixedParam> fixed_params;
+    if (optimization_context_dto.containsElementNamed("fixed_params")) {
+        Rcpp::List fixed_params_list = optimization_context_dto["fixed_params"];
+        if (fixed_params_list.size() > 0) {
+            Rcpp::CharacterVector fixed_params_names = fixed_params_list.names();
+            for (int i = 0; i < fixed_params_list.size(); ++i) {
+                auto it = param_map.find(std::string(fixed_params_names[i]));
+                if (it != param_map.end()) {
+                    fixed_params.push_back({ it->second, Rcpp::as<double>(fixed_params_list[i]) });
+                }
+            }
+        }
+    }
+    return fixed_params;
+}
+
+std::vector<OptimizationContext::EstimatedParam> OptimizationContext::parse_estimated_params(const Rcpp::List& optimization_context_dto) {
+    std::vector<OptimizationContext::EstimatedParam> estimated_params;
+    if (optimization_context_dto.containsElementNamed("estimated_params")) {
+        Rcpp::List estimated_params_list = optimization_context_dto["estimated_params"];
+        if (estimated_params_list.size() > 0) {
+            Rcpp::CharacterVector estimated_params_names = estimated_params_list.names();
+            for (int i = 0; i < estimated_params_list.size(); ++i) {
+                auto it = param_map.find(std::string(estimated_params_names[i]));
+                if (it != param_map.end()) {
+                    estimated_params.push_back({
+                        it->second, 
+                        Rcpp::as<int>(estimated_params_list[i]) - 1
+                    });
+                }
+            }
+        }
+    }    
+    return estimated_params;
+}
+
+std::vector<OptimizationContext::FormulaParam> OptimizationContext::parse_formula_params(const Rcpp::List& optimization_context_dto) {
+    std::vector<OptimizationContext::FormulaParam> formula_params;
+    if (optimization_context_dto.containsElementNamed("formula_params")) {
+        Rcpp::List formula_params_list = optimization_context_dto["formula_params"];
+        if (formula_params_list.size() > 0) {
+            Rcpp::CharacterVector formula_names = formula_params_list.names();
+            for (int i = 0; i < formula_params_list.size(); ++i) {
+                auto it = param_map.find(std::string(formula_names[i]));
+                if (it != param_map.end()) {
+                    FormulaParam formula_param = { it->second };
+
+                    Rcpp::List components = Rcpp::as<Rcpp::List>(formula_params_list[i]);
+                    if (components.containsElementNamed("beta_indices")) {
+                        formula_param.beta_indices = Rcpp::as<arma::uvec>(components["beta_indices"]) - 1;
+                    }
+
+                    if (components.containsElementNamed("model_matrix_indices")) {
+                        formula_param.model_matrix_indices = Rcpp::as<arma::uvec>(components["model_matrix_indices"]) - 1;
+                    }
+
+                    formula_params.push_back(formula_param);
+                }
+            }
+        }
+    }
+    return formula_params;
+}
+
+
+OptimizationContext::OptimizationContext(const Rcpp::List& optimization_context_dto) :
+    dependent_vars(Rcpp::as<arma::mat>(optimization_context_dto["dependent_vars"])),
+    optim_method(Rcpp::as<std::string>(optimization_context_dto["optim_method"])),
+    maxt0(Rcpp::as<double>(optimization_context_dto["maxt0"])),
+    restr_tau(Rcpp::as<double>(optimization_context_dto["restr_tau"])),
+    precision(Rcpp::as<double>(optimization_context_dto["precision"])),
+    simult_conf(Rcpp::as<bool>(optimization_context_dto["simult_conf"])),
+    logging(Rcpp::as<bool>(optimization_context_dto["logging"])),
+    opts(parse_opts(optimization_context_dto)),
+    model_matrix(Rcpp::as<arma::mat>(optimization_context_dto["model_matrix"])),
+    n_ratings(Rcpp::as<int>(optimization_context_dto["n_ratings"])),
+    sym_thetas(Rcpp::as<bool>(optimization_context_dto["sym_thetas"])),
+    theta_indices(parse_theta_indices(optimization_context_dto)),
+    fixed_params(parse_fixed_params(optimization_context_dto)),
+    estimated_params(parse_estimated_params(optimization_context_dto)),
+    formula_params(parse_formula_params(optimization_context_dto))
+{}
 
 ModelParameters OptimizationContext::get_trial_params(int trial_idx, const arma::vec& beta) const {
     ModelParameters params = {};
@@ -131,10 +186,10 @@ arma::vec OptimizationContext::calculate_thetas(const arma::vec& beta) const {
 }
 
 arma::vec OptimizationContext::calculate_sym_thetas(const arma::vec& beta) const {
-    if (sym_theta_indices.empty()) return arma::vec();
+    if (theta_indices.sym.empty()) return arma::vec();
 
     std::vector<double> relevant_betas;
-    for (int idx : sym_theta_indices) {
+    for (int idx : theta_indices.sym) {
         relevant_betas.push_back(beta[idx]);
     }
 
@@ -175,8 +230,8 @@ arma::vec OptimizationContext::calculate_asym_thetas(const arma::vec& beta) cons
         return thetas;
     };
 
-    arma::vec lower_thetas = process_theta_vector(lower_theta_indices);
-    arma::vec upper_thetas = process_theta_vector(upper_theta_indices);
+    arma::vec lower_thetas = process_theta_vector(theta_indices.lower);
+    arma::vec upper_thetas = process_theta_vector(theta_indices.upper);
     
     return arma::join_cols(lower_thetas, upper_thetas);
 }

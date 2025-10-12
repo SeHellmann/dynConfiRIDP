@@ -27,7 +27,7 @@ fit_rtconf_models_formula <- function(
   base_context <- jobs_setup_res$context
   jobs_list <- jobs_setup_res$jobs_list
 
-  if (base_context$parallel) on.exit(future::plan(sequential), add = TRUE)
+  if (base_context$parallel) on.exit(plan(sequential), add = TRUE)
 
   future_lapply(
     jobs_list,

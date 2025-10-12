@@ -9,9 +9,8 @@ DEFAULT_OPTS <- list(
   n_attempts = 5,
   n_restarts = 5,
   maxfun = 8000,
-  maxit = 2000,
-  reltol = 1e-6,
-  factr = 1e-10
+  reltol = 1e-6
+  # factr = 1e-10 # use when L-BFGS-B is an accepted optim_method
 )
 
 utils::globalVariables(c(
