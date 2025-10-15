@@ -88,7 +88,7 @@ get_model_params <- function(context) {
     } else {
       paste0(
         "dtheta",
-        rep(c("Lower", "Upper"), times = context$n_ratings - 2),
+        rep(c("Lower", "Upper"), each = context$n_ratings - 2),
         rep(dtheta_indices, times = 2)
       )
     }
