@@ -1,9 +1,6 @@
 #include "optimization_context.hpp"
-#include "Rcpp/vector/instantiation.h"
 #include "validate_params.h"
 #include <map>
-#include <string>
-#include <vector>
 
 static const std::map<std::string, ParamType> param_map = {
     {"a", ParamType::a}, {"v", ParamType::v}, {"t0", ParamType::t0},

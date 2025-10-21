@@ -8,7 +8,7 @@ fit_rtconf_models_formula <- function(
   n_ratings = NULL,
   restr_tau = Inf,
   sym_thetas = FALSE,
-  precision = 1e-5,
+  precision = 3,
   opts = list(),
   grid_search = TRUE,
   logging = FALSE,
@@ -20,7 +20,7 @@ fit_rtconf_models_formula <- function(
 
   base_context <- args |>
     get_base_context() |>
-    setup_logging() |>
+    setup_main_logging() |>
     setup_parallel()
 
   jobs_setup_res <- setup_jobs(base_context, models, manipulations)
@@ -32,7 +32,7 @@ fit_rtconf_models_formula <- function(
   future_lapply(
     jobs_list,
     function(job) fit_rtconf_formula_worker(base_context, job),
-    future.seed = TRUE,
+    future.seed = TRUE
   )
 }
 
@@ -43,6 +43,8 @@ fit_rtconf_formula_worker <- function(base_context, job) {
   job_context$data <- subset(base_context$data, base_context$data[["sbj"]] == job$sbj)
   job_context$model <- job$model
   job_context$manipulations <- job$manipulations
+
+  job_context <- setup_subject_logging(job_context)
 
   res <- fit_rtconf_formula_dispatcher(job_context)
 

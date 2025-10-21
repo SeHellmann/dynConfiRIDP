@@ -46,8 +46,8 @@ validate_rtconf_models_args <- function(
     if (inherits(manipulations[[1]], "formula")) {
       # single list of formulas, check each element
       assert_that(
-        all(vapply(manipulations, inherits, "formula", logical(1))),
-        all(vapply(manipulations, function(x) length(all.vars(x[[2]])) > 0, logical(1))),
+        all(vapply(manipulations, inherits, what = "formula", FUN.VALUE = logical(1))),
+        all(vapply(manipulations, function(x) length(all.vars(x[[3]])) > 0, FUN.VALUE = logical(1))),
         msg = sprintf(
           "`manipulations` must be a list of formulas of the form LHS ~ RHS\nGot: %s",
           describe(manipulations)
@@ -74,8 +74,8 @@ validate_rtconf_models_args <- function(
         )
         if (length(inner_manip) > 0) {
           assert_that(
-            all(sapply(inner_manip, inherits, "formula")),
-            all(sapply(inner_manip, function(x) length(all.vars(x[[2]])) > 0)),
+            all(vapply(inner_manip, inherits, "formula", logical(1))),
+            all(vapply(inner_manip, function(x) length(all.vars(x[[3]])) > 0, logical(1))),
             msg = sprintf(
               "All manipulations in manipulations[[%d]] must be formulas of the form LHS ~ RHS\nGot: %s",
               m,
@@ -139,8 +139,8 @@ validate_rtconf_args <- function(
   # manipulations
   assert_that(
     is.list(manipulations),
-    all(sapply(manipulations, inherits, "formula")),
-    all(sapply(manipulations, function(x) length(all.vars(x[[2]])) > 0)),
+    all(vapply(manipulations, inherits, what = "formula", FUN.VALUE = logical(1))),
+    all(vapply(manipulations, function(x) length(all.vars(x[[3]])) > 0, FUN.VALUE = logical(1))),
     msg = sprintf(
       "`manipulations` must be a list of formulas of the form LHS ~ RHS\nGot: %s",
       describe(manipulations)
@@ -248,9 +248,10 @@ validate_rtconf_common_args <- function(
   assert_that(
     is.numeric(precision),
     length(precision) == 1,
-    precision > 0,
+    precision %% 1 == 0,
+    precision >= 1,
     msg = sprintf(
-      "`precision` must be a single positive numeric value\nGot: %s",
+      "`precision` must be an integer >= 1\nGot: %s",
       describe(precision)
     )
   )

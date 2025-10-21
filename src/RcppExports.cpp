@@ -24,14 +24,14 @@ BEGIN_RCPP
 END_RCPP
 }
 // grid_search_worker
-double grid_search_worker(const Rcpp::List& optimization_context_dto, Rcpp::NumericVector params);
-RcppExport SEXP _dynConfiRIDP_grid_search_worker(SEXP optimization_context_dtoSEXP, SEXP paramsSEXP) {
+Rcpp::NumericVector grid_search_worker(const Rcpp::List& optimization_context_dto, Rcpp::NumericMatrix inits_matrix);
+RcppExport SEXP _dynConfiRIDP_grid_search_worker(SEXP optimization_context_dtoSEXP, SEXP inits_matrixSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const Rcpp::List& >::type optimization_context_dto(optimization_context_dtoSEXP);
-    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type params(paramsSEXP);
-    rcpp_result_gen = Rcpp::wrap(grid_search_worker(optimization_context_dto, params));
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type inits_matrix(inits_matrixSEXP);
+    rcpp_result_gen = Rcpp::wrap(grid_search_worker(optimization_context_dto, inits_matrix));
     return rcpp_result_gen;
 END_RCPP
 }

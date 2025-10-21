@@ -11,10 +11,9 @@ fitting_dynwev_formula <- function(context) {
       dimnames = list(NULL, context$beta_names)
     )
   } else {
-    single_start <- rnorm(length(context$beta_names), mean = 0, sd = 0.1)
     inits <- matrix(
-      single_start,
-      nrow = 1,
+      rnorm(context$opts$n_attempts * length(context$beta_names), mean = 0, sd = 0.1),
+      nrow = context$opts$n_attempts,
       dimnames = list(NULL, context$beta_names)
     )
   }
@@ -36,19 +35,32 @@ fitting_dynwev_formula <- function(context) {
     if (context$logging) {
       log_info(sprintf(
         "%d parameter sets to check for %d rows of data",
-        nrow(inits), nrow(context$dependent_vars)
+        n_initials, nrow(context$dependent_vars)
       ))
       log_info("Starting grid search...")
     }
 
-    inits_rows <- lapply(seq_len(nrow(inits)), function(i) inits[i, ])
-    log_likelihood <- future_lapply(
-      inits_rows,
-      function(row) grid_search_worker(optimization_context, row),
+    min_batches <- 10
+    n_workers <- future::nbrOfWorkers()
+    n_batches <- max(n_workers, min_batches)
+
+    batch_row_indices <- split(
+      seq_len(n_initials),
+      cut(seq_len(n_initials), breaks = n_batches, labels = FALSE)
+    )
+
+    inits_batches <- lapply(
+      batch_row_indices,
+      function(indices) inits[indices, , drop = FALSE]
+    )
+
+    log_likelihood_list <- future_lapply(
+      inits_batches,
+      function(batch) grid_search_worker(optimization_context, batch),
       future.seed = TRUE
     )
 
-    log_likelihood <- vapply(log_likelihood, identity, numeric(1))
+    log_likelihood <- unlist(log_likelihood_list, use.names = FALSE)
     inits <- inits[order(log_likelihood), ]
 
     if (context$logging) {
@@ -58,7 +70,11 @@ fitting_dynwev_formula <- function(context) {
       ))
 
       save_optimization_state(context,
-        list(log_likelihood = log_likelihood, inits = inits),
+        list(
+          context = context,
+          log_likelihood = log_likelihood,
+          inits = inits
+        ),
         type = "grid_search"
       )
     }
@@ -74,6 +90,7 @@ fitting_dynwev_formula <- function(context) {
 
   starts <- inits[seq_len(context$opts$n_attempts), , drop = FALSE]
   starts_rows <- lapply(seq_len(nrow(starts)), function(i) starts[i, ])
+  names(starts_rows) <- paste0("attempt_", seq_along(starts_rows))
 
   optim_outs <- future_lapply(
     starts_rows,
@@ -81,26 +98,34 @@ fitting_dynwev_formula <- function(context) {
     future.seed = TRUE
   )
 
-  values <- vapply(optim_outs, function(x) x$value, numeric(1))
-  best_idx <- which.min(values)
-  fit <- if (length(best_idx) == 0) NULL else optim_outs[[best_idx]]
+  node_values <- vapply(optim_outs, function(node_result) {
+    if (is.na(node_result$best_fit_idx)) return(Inf)
+
+    best_fit <- node_result$all_fits[[node_result$best_fit_idx]]
+    best_fit$value
+  }, numeric(1))
+
+  best_node_idx <- which.min(node_values)
 
   if (context$logging) {
     save_optimization_state(context,
       list(
         optim_outs = optim_outs,
-        best_idx = best_idx,
-        values = values
+        best_node_idx = best_node_idx,
+        node_values = node_values
       ),
       type = "optimization"
     )
   }
 
+  best_node_result <- optim_outs[[best_node_idx]]
+  fit <- best_node_result$all_fits[[best_node_result$best_fit_idx]]
+
   #### wrap up results ####
   res <- list()
-  if (!is.null(fit) && !is.na(fit$value)) {
+  if (!is.na(fit$value) && !is.null(fit$params)) {
     if (!is.null(context$used_ratings)) {
-      fit$par <- fill_thresholds(fit$par, context$used_ratings, context$initial_n_ratings, context$sym_thetas)
+      fit$params <- fill_thresholds(fit$params, context$used_ratings, context$initial_n_ratings, context$sym_thetas)
     }
 
     res <- build_result_list(context, fit)
@@ -116,7 +141,7 @@ fitting_dynwev_formula <- function(context) {
     }
   } else {
     if (context$logging) {
-      log_warn("No valid fit obtained - all attempts returned NA")
+      log_warn("No valid fit could be obtained, all optimization attempts returned NA")
     } else {
       warning("No valid fit could be obtained, all optimization attempts returned NA")
     }
@@ -137,18 +162,19 @@ optimization_node <- function(optimization_context, start_params) {
     ))
   }
 
-  node_fit <- NULL
-  best_value <- Inf
+  all_fits <- vector("list", optimization_context$opts$n_restarts)
+  best_fit_idx <- NA_integer_
+  current_params <- start_params
 
-  for (j in seq_len(optimization_context$opts$n_restarts)) {
+  for (i in seq_len(optimization_context$opts$n_restarts)) {
     # Jitter parameters
-    jittered_params <- start_params +
-      rnorm(length(start_params), sd = pmax(0.001, abs(start_params / 20)))
+    jittered_params <- current_params +
+      rnorm(length(current_params), sd = pmax(0.001, abs(current_params / 20)))
 
     if (optimization_context$logging) {
       log_info(sprintf(
         "Restart %d/%d - Jittered params: %s",
-        j, optimization_context$opts$n_restarts,
+        i, optimization_context$opts$n_restarts,
         paste(
           names(jittered_params),
           sprintf("%.4f", jittered_params),
@@ -157,67 +183,54 @@ optimization_node <- function(optimization_context, start_params) {
       ))
     }
 
-    current_fit <- tryCatch({
-      nlopt_optimizer(optimization_context, jittered_params)
-    }, error = function(e) {
-      if (optimization_context$logging) {
-        log_error(sprintf(
-          "Optimization failed on restart %d: %s",
-          j, e$message
-        ))
+    current_fit <- nlopt_optimizer(optimization_context, jittered_params)
+    all_fits[[i]] <- current_fit
+
+    if (!is.na(current_fit$value) && !is.null(current_fit$params)) {
+      if (is.na(best_fit_idx) || current_fit$value < all_fits[[best_fit_idx]]$value) {
+        current_params <- current_fit$params
+        best_fit_idx <- i
+
+        if (optimization_context$logging) {
+          log_success(sprintf(
+            "New best fit on restart %d - negLogLik: %s - Params: %s",
+            i, sprintf("%.4f", current_fit$value),
+            paste(names(current_fit$params), sprintf("%.4f", current_fit$params),
+              sep = "=", collapse = ", "
+            )
+          ))
+        }
       }
-      NULL
-    })
-
-    if (!is.null(current_fit) && !is.na(current_fit$value) && current_fit$value < best_value) {
-      node_fit <- current_fit
-      best_value <- current_fit$value
-
-      if (optimization_context$logging) {
-        log_success(sprintf(
-          "New best fit on restart %d - negLogLik: %s - Params: %s",
-          j, sprintf("%.4f", best_value),
-          paste(names(current_fit$par), sprintf("%.4f", current_fit$par),
-            sep = "=", collapse = ", "
-          )
-        ))
-      }
-    }
-
-    if (!is.null(node_fit)) {
-      start_params <- node_fit$par
     }
   }
 
-  if (is.null(node_fit)) {
-    if (optimization_context$logging) {
+  if (optimization_context$logging) {
+    if (is.na(best_fit_idx)) {
       log_warn("Node failed to find valid fit across all restarts")
-    }
-    list(
-      value = NA_real_,
-      par = setNames(rep(NA_real_, length(start_params)), names(start_params))
-    )
-  } else {
-    if (optimization_context$logging) {
+    } else {
       log_info(sprintf(
-        "Node complete - Final negLogLik: %.4f",
-        node_fit$value
+        "Node complete - Best negLogLik: %.4f",
+        all_fits[[best_fit_idx]]$value
       ))
     }
-    node_fit
   }
+
+  list(
+    all_fits = all_fits,
+    best_fit_idx = best_fit_idx
+  )
 }
 
 #' @keywords internal
 build_result_list <- function(context, fit) {
-  k <- length(fit$par)
+  k <- length(fit$params)
   N <- nrow(context$dependent_vars)
   AIC <- 2 * fit$value + 2 * k
 
   list(
     k = k,
     N = N,
-    beta = fit$par,
+    beta = fit$params,
     fixed = paste(
       c("sym_thetas", names(context$fixed)),
       c(context$sym_thetas, unlist(context$fixed)),

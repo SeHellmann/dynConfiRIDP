@@ -35,6 +35,7 @@
 #'   multicore
 #'   availableCores
 #'   supportsMulticore
+#'   nbrOfWorkers
 #' @importFrom future.apply
 #'   future_lapply
 #' @importFrom stats

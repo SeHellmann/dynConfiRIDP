@@ -28,15 +28,16 @@ process_input_data <- function(context) {
   # if no response then both stimulus and correct or only correct (with warning)
   if (!is.null(response)) {
     response_levels <- sort(unique(response))
-    if (!all(response_levels ==stimulus_levels)) {
+    if (!all(response_levels == stimulus_levels)) {
       stop(sprintf(
         "`response` and `stimulus` must have the same unique values\nresponse: %s\nstimulus: %s",
-        paste(response_levels,collapse = ", "), paste(stimulus_levels, collapse=", ")))
+        paste(response_levels, collapse = ", "), paste(stimulus_levels, collapse = ", ")
+      ))
     }
     response <- ifelse(response == response_levels[1], 0, 1)
   } else if (!is.null(correct)) {
     if (!is.null(stimulus)) {
-      response <- ifelse((stimulus * (-1)^correct == 1)+1, 0, 1)
+      response <- ifelse((stimulus * (-1)^correct == 1) + 1, 0, 1)
     } else {
       # get response from correct
       response <- ifelse(correct == 0, 0, 1)

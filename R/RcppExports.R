@@ -5,7 +5,7 @@ nlopt_optimizer <- function(optimization_context_dto, start_params) {
     .Call(`_dynConfiRIDP_nlopt_optimizer`, optimization_context_dto, start_params)
 }
 
-grid_search_worker <- function(optimization_context_dto, params) {
-    .Call(`_dynConfiRIDP_grid_search_worker`, optimization_context_dto, params)
+grid_search_worker <- function(optimization_context_dto, inits_matrix) {
+    .Call(`_dynConfiRIDP_grid_search_worker`, optimization_context_dto, inits_matrix)
 }
 

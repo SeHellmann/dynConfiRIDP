@@ -1,7 +1,7 @@
 library(dplyr)
 
-parallel <- FALSE
-n_cores <- 2
+parallel <- TRUE
+n_cores <- 4
 
 if (parallel) {
   library(dynConfiRIDP)
@@ -10,12 +10,14 @@ if (parallel) {
 }
 
 data <- SATdata %>% select(-RT2, -confidence)
-data <- head(data, 100)
+# data <- head(data, 100)
 
 manipulations <- list(a ~ SAT, v ~ condition)
+opts <- list(n_attempts = 2, n_restarts = 2)
 res <- fit_rtconf_formula(
   data,
   manipulations = manipulations,
+  opts = opts,
   logging = TRUE,
   parallel = parallel,
   n_cores = n_cores

@@ -1,7 +1,6 @@
 #pragma once
 
 #include <RcppArmadillo.h>
-#include <Rcpp.h>
 #include <vector>
 #include <regex>
 
@@ -23,7 +22,7 @@ struct ModelParameters {
     double th1 = 0.0, th2 = 0.0;
 
     void apply_transformations(const OptimizationContext& optimization_context);
-    Rcpp::NumericVector to_density_vector(bool boundary, double precision = 2) const;
+    Rcpp::NumericVector to_density_vector(bool boundary, double precision) const;
 };
 
 class OptimizationContext {
@@ -38,6 +37,9 @@ public:
     const bool simult_conf;
     const bool logging;
     const OptimizationOptions opts;
+
+    int eval_count = 0;
+    double last_best_logl = std::numeric_limits<double>::infinity();
 
     explicit OptimizationContext(const Rcpp::List& optimization_context);
 

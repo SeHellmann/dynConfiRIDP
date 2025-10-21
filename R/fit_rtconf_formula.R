@@ -8,7 +8,7 @@ fit_rtconf_formula <- function(
   n_ratings = NULL,
   restr_tau = Inf,
   sym_thetas = FALSE,
-  precision = 1e-5,
+  precision = 3,
   opts = list(),
   grid_search = TRUE,
   logging = FALSE,
@@ -20,7 +20,7 @@ fit_rtconf_formula <- function(
 
   base_context <- args |>
     get_base_context() |>
-    setup_logging() |>
+    setup_main_logging() |>
     setup_parallel()
 
   if (base_context$parallel) on.exit(plan(sequential), add = TRUE)
