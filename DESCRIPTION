@@ -32,6 +32,7 @@ Imports:
     future.apply,
     stats,
     assertthat,
+    here,
     logger
 Suggests: 
     ggplot2,
