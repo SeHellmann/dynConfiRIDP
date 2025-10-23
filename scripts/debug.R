@@ -1,3 +1,4 @@
+rm(list = ls())
 pkg <- "dynConfiRIDP"
 
 if ("future" %in% loadedNamespaces()) future::plan("sequential")

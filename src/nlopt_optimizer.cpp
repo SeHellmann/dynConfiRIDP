@@ -3,15 +3,26 @@
 #include <nloptrAPI.h>
 #include <sstream>
 #include <vector>
-// #include "densities/density_WEVmu.h"
-#include "densities/legacy_density_WEVmu.h"
+#include "densities/density_WEVmu.h"
+// #include "densities/legacy_density_WEVmu.h"
 #include "utils/optimization_context.hpp"
 #include "utils/logger.hpp"
 
-double calculate_neg_loglikelihood(OptimizationContext& optimization_context, const arma::vec& beta) {
+const int max_bad_trials = 15;           // Absolute limit: 15 bad trials
+const double max_bad_ratio = 0.15;       // Relative limit: 15% bad trials
+const int min_trials_for_ratio = 30;     // Only check ratio after 30 trials
+const double bailout_threshold = -1e6;   // logLikelihood threshold
+const int bailout_check_after = 50;      // Check likelihood after 50 trials
+
+double calculate_neg_loglikelihood(
+    OptimizationContext& optimization_context, 
+    const arma::vec& beta,
+    bool use_early_rejection = false
+) {
     int n_trials = optimization_context.dependent_vars.n_rows;
     double total_logl = 0.0;
-    std::stringstream ss;
+    
+    int bad_trials = 0;
 
     for (int i = 0; i < n_trials; ++i) {
         if (i % 100 == 0) Rcpp::checkUserInterrupt();
@@ -27,16 +38,54 @@ double calculate_neg_loglikelihood(OptimizationContext& optimization_context, co
         double rt = optimization_context.dependent_vars(i, 0);
 
         Rcpp::NumericVector fit_vector = params.to_density_vector(boundary, optimization_context.precision);
-
         double prob = std::abs(g_minus_WEVmu(rt, fit_vector));
 
-        if (prob == 0) {
+        if (prob == 0 || R_IsNaN(prob)) {
+            bad_trials++;
+            
+            if (use_early_rejection) {
+                if (bad_trials > max_bad_trials) {
+                    if (optimization_context.logging) {
+                        std::stringstream ss;
+                        ss << "Early rejection: " << bad_trials 
+                           << " bad trials (limit: " << max_bad_trials << ")";
+                        Logger::warn(ss.str());
+                    }
+                    return 1e12;
+                }
+                
+                if (i >= min_trials_for_ratio) {
+                    double bad_ratio = (double)bad_trials / (i + 1);
+                    if (bad_ratio > max_bad_ratio) {
+                        if (optimization_context.logging) {
+                            std::stringstream ss;
+                            ss << "Early rejection: bad ratio " 
+                               << std::fixed << std::setprecision(1)
+                               << (bad_ratio * 100) << "% (limit: " 
+                               << (max_bad_ratio * 100) << "%) at trial " << (i + 1);
+                            Logger::warn(ss.str());
+                        }
+                        return 1e12;
+                    }
+                }
+            }
+
             total_logl += std::log(std::numeric_limits<double>::min());
-        } else if (R_IsNaN(prob)) {
-            Logger::error("NaN probability at trial " + std::to_string(i));
-            return 1e12;
         } else {
             total_logl += std::log(prob);
+        }
+        
+        if (use_early_rejection && i >= bailout_check_after) {
+            if (total_logl < bailout_threshold) {
+                if (optimization_context.logging) {
+                    std::stringstream ss;
+                    ss << "Early rejection: logLik " << total_logl 
+                       << " too low (threshold: " << bailout_threshold 
+                       << ") at trial " << (i + 1);
+                    Logger::warn(ss.str());
+                }
+                return 1e12;
+            }
         }
     }
 
@@ -170,7 +219,7 @@ Rcpp::NumericVector grid_search_worker(const Rcpp::List& optimization_context_dt
 
     for (int i = 0; i < n_sets; ++i) {
         arma::vec beta = arma::trans(params_matrix.row(i));
-        results[i] = calculate_neg_loglikelihood(optimization_context, beta);
+        results[i] = calculate_neg_loglikelihood(optimization_context, beta, true);
     }
 
     return results;

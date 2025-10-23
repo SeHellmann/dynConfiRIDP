@@ -173,9 +173,11 @@ fitting_dynwev_formula <- function(context) {
 
 #' @keywords internal
 grid_search_batch <- function(optimization_context, batch) {
-  if (optimization_context$logging) log_info("Starting grid search batch...")
-  grid_search_worker(optimization_context, batch)
-  if (optimization_context$logging) log_info("Finished grid search batch...")
+  if (optimization_context$logging) log_info(sprintf("Starting grid search batch of size %d...", nrow(batch)))
+  batch_res <- grid_search_worker(optimization_context, batch)
+  if (optimization_context$logging) log_info(sprintf("Finished grid search batch of size %d", nrow(batch)))
+
+  batch_res
 }
 
 #' @keywords internal
