@@ -2,7 +2,7 @@
 setup_main_logging <- function(context) {
   if (!context$logging) return(context)
 
-  base_dir <- file.path(tempdir(), "rtconf_fits")
+  base_dir <- here::here(".logs", "rtconf_fits")
   identifier <- "main"
   log_tag <- "[MAIN]:"
 
@@ -25,13 +25,24 @@ setup_subject_logging <- function(context) {
     }
   }
 
-  base_dir <- file.path(tempdir(), "rtconf_fits", paste0("fit_", context$model))
-  if (participant_id != 999)
+  base_dir <- here::here(".logs", "rtconf_fits", paste0("fit_", context$model))
+  if (participant_id != 999) {
     base_dir <- file.path(base_dir, sprintf("subj_%s", participant_id))
+  }
+
   identifier <- paste(context$model, participant_id, sep = "_")
   log_tag <- paste0("[SUBJ: ", participant_id, "]:")
 
   apply_log_settings(context, base_dir, identifier, log_tag)
+}
+
+#' @keywords internal
+setup_worker_logging <- function(log_config) {
+  if (is.null(log_config)) return(invisible())
+
+  log_layout(log_config$layout, index = 2)
+  log_appender(appender_file(log_config$log_file), index = 2)
+  log_threshold(log_config$threshold, index = 2)
 }
 
 #' @keywords internal
@@ -65,14 +76,22 @@ apply_log_settings <- function(context, base_dir, identifier, log_tag) {
     log_tag,
     "{msg}"
   )
-
-  log_layout(layout_glue_generator(
+  layout <- layout_glue_generator(
     format = paste(log_parts[log_parts != ""], collapse = " ")
-  ))
+  )
+
+  log_layout(layout, index = 1)
+  log_layout(layout, index = 2)
   log_appender(appender_file(log_file), index = 2)
   log_threshold(DEBUG, index = 2)
 
+  context$log_config <- list(
+    layout = layout,
+    log_file = log_file,
+    threshold = DEBUG
+  )
   context$data_file_prefix <- data_file_prefix
+
   log_info(sprintf("Logging initialized, logs will be saved in: %s", base_dir))
 
   context

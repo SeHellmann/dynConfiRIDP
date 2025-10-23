@@ -5,10 +5,10 @@ SOURCES = RcppExports.cpp \
     nlopt_optimizer.cpp \
     utils/optimization_context.cpp \
     utils/validate_params.cpp \
-    densities/density_2DSD.cpp \
-    densities/density_IRM.cpp \
-    densities/density_PCRM.cpp \
-    densities/density_WEVmu.cpp \
-    densities/rng_WEV.cpp
+#    densities/density_2DSD.cpp \
+#    densities/density_IRM.cpp \
+#    densities/density_PCRM.cpp \
+#    densities/density_WEVmu.cpp \
+#    densities/rng_WEV.cpp
 
 OBJECTS = $(SOURCES:.cpp=.o)

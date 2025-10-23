@@ -3,13 +3,15 @@
 #include <nloptrAPI.h>
 #include <sstream>
 #include <vector>
-#include "densities/density_WEVmu.h"
+// #include "densities/density_WEVmu.h"
+#include "densities/legacy_density_WEVmu.h"
 #include "utils/optimization_context.hpp"
 #include "utils/logger.hpp"
 
 double calculate_neg_loglikelihood(OptimizationContext& optimization_context, const arma::vec& beta) {
     int n_trials = optimization_context.dependent_vars.n_rows;
     double total_logl = 0.0;
+    std::stringstream ss;
 
     for (int i = 0; i < n_trials; ++i) {
         if (i % 100 == 0) Rcpp::checkUserInterrupt();
@@ -25,6 +27,7 @@ double calculate_neg_loglikelihood(OptimizationContext& optimization_context, co
         double rt = optimization_context.dependent_vars(i, 0);
 
         Rcpp::NumericVector fit_vector = params.to_density_vector(boundary, optimization_context.precision);
+
         double prob = std::abs(g_minus_WEVmu(rt, fit_vector));
 
         if (prob == 0) {
@@ -56,7 +59,7 @@ double neg_loglikelihood(
 
     double negLogLik = calculate_neg_loglikelihood(*optimization_context, beta);
 
-    if (++(optimization_context->eval_count) % 20 == 0) {
+    if (++(optimization_context->eval_count) % 50 == 0) {
         std::stringstream ss;
         ss << "Evaluation " << optimization_context->eval_count 
            << " - negLogLik: " << negLogLik
@@ -168,15 +171,6 @@ Rcpp::NumericVector grid_search_worker(const Rcpp::List& optimization_context_dt
     for (int i = 0; i < n_sets; ++i) {
         arma::vec beta = arma::trans(params_matrix.row(i));
         results[i] = calculate_neg_loglikelihood(optimization_context, beta);
-
-        if ((i + 1) % 20 == 0 || (i + 1) == n_sets) {
-            std::stringstream ss;
-            ss << "Grid Search Batch Progress: [" 
-               << (i + 1) << " / " << n_sets 
-               << "] - Last negLogLik: " << results[i];
-            
-            Logger::info(ss.str());
-        }
     }
 
     return results;

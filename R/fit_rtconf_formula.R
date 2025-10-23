@@ -8,7 +8,7 @@ fit_rtconf_formula <- function(
   n_ratings = NULL,
   restr_tau = Inf,
   sym_thetas = FALSE,
-  precision = 3,
+  precision = 2,
   opts = list(),
   grid_search = TRUE,
   logging = FALSE,

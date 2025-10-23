@@ -4,6 +4,7 @@ get_base_context <- function(args) {
   c(args, list(
     #### placeholders for derived values
     #### setup_logging
+    log_config = NULL,
     data_file_prefix = NULL,
     #### process_input_data
     dependent_vars = NULL,

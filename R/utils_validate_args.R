@@ -74,8 +74,8 @@ validate_rtconf_models_args <- function(
         )
         if (length(inner_manip) > 0) {
           assert_that(
-            all(vapply(inner_manip, inherits, "formula", logical(1))),
-            all(vapply(inner_manip, function(x) length(all.vars(x[[3]])) > 0, logical(1))),
+            all(vapply(inner_manip, inherits, what = "formula", FUN.VALUE = logical(1))),
+            all(vapply(inner_manip, function(x) length(all.vars(x[[3]])) > 0, FUN.VALUE = logical(1))),
             msg = sprintf(
               "All manipulations in manipulations[[%d]] must be formulas of the form LHS ~ RHS\nGot: %s",
               m,
@@ -86,6 +86,19 @@ validate_rtconf_models_args <- function(
       }
     }
   }
+  # n_cores
+  assert_that(
+    is.null(n_cores) || (
+      is.numeric(n_cores) &&
+      length(n_cores) %in% c(1, 2) &&
+      all(n_cores %% 1 == 0) &&
+      all(n_cores >= 1)
+    ),
+    msg = sprintf(
+      "`n_cores` must be NULL or an integer vector of length 1 or 2 with values >= 1\nGot: %s",
+      describe(n_cores)
+    )
+  )
 
   validate_rtconf_common_args(
     data,
@@ -98,8 +111,7 @@ validate_rtconf_models_args <- function(
     opts,
     grid_search,
     logging,
-    parallel,
-    n_cores
+    parallel
   )
 }
 
@@ -146,6 +158,19 @@ validate_rtconf_args <- function(
       describe(manipulations)
     )
   )
+  # n_cores
+  assert_that(
+    is.null(n_cores) || (
+      is.numeric(n_cores) &&
+      length(n_cores) == 1 &&
+      n_cores %% 1 == 0 &&
+      n_cores >= 1
+    ),
+    msg = sprintf(
+      "`n_cores` must be NULL or an integer >= 1\nGot: %s",
+      describe(n_cores)
+    )
+  )
 
   validate_rtconf_common_args(
     data,
@@ -158,8 +183,7 @@ validate_rtconf_args <- function(
     opts,
     grid_search,
     logging,
-    parallel,
-    n_cores
+    parallel
   )
 }
 
@@ -175,8 +199,7 @@ validate_rtconf_common_args <- function(
   opts,
   grid_search,
   logging,
-  parallel,
-  n_cores
+  parallel
 ) {
   # data
   assert_that(
@@ -347,19 +370,6 @@ validate_rtconf_common_args <- function(
     msg = sprintf(
       "`parallel` must be a single logical value\nGot: %s",
       describe(parallel)
-    )
-  )
-  # n_cores
-  assert_that(
-    is.null(n_cores) || (
-      is.numeric(n_cores) &&
-      length(n_cores) == 1 &&
-      n_cores %% 1 == 0 &&
-      n_cores >= 1
-    ),
-    msg = sprintf(
-      "`n_cores` must be NULL or an integer >= 1\nGot: %s",
-      describe(n_cores)
     )
   )
 }

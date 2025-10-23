@@ -8,7 +8,7 @@ fit_rtconf_models_formula <- function(
   n_ratings = NULL,
   restr_tau = Inf,
   sym_thetas = FALSE,
-  precision = 3,
+  precision = 2,
   opts = list(),
   grid_search = TRUE,
   logging = FALSE,
@@ -32,7 +32,8 @@ fit_rtconf_models_formula <- function(
   future_lapply(
     jobs_list,
     function(job) fit_rtconf_formula_worker(base_context, job),
-    future.seed = TRUE
+    future.seed = TRUE,
+    future.scheduling = FALSE
   )
 }
 

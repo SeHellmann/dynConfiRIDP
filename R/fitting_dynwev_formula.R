@@ -1,6 +1,7 @@
 #' @keywords internal
 fitting_dynwev_formula <- function(context) {
   optimization_context <- get_dynwev_optimization_context(context)
+  log_config <- context$log_config
 
   #### grid search setup ####
   if (context$grid_search) {
@@ -40,14 +41,16 @@ fitting_dynwev_formula <- function(context) {
       log_info("Starting grid search...")
     }
 
-    min_batches <- 10
-    n_workers <- future::nbrOfWorkers()
-    n_batches <- max(n_workers, min_batches)
+    n_workers <- nbrOfWorkers()
+    n_batches <- min(n_workers, n_initials)
 
-    batch_row_indices <- split(
-      seq_len(n_initials),
-      cut(seq_len(n_initials), breaks = n_batches, labels = FALSE)
+    group_indices <- rep(
+      seq_len(n_batches),
+      each = floor(n_initials / n_batches),
+      length.out = n_initials
     )
+
+    batch_row_indices <- split(seq_len(n_initials), group_indices)
 
     inits_batches <- lapply(
       batch_row_indices,
@@ -56,8 +59,17 @@ fitting_dynwev_formula <- function(context) {
 
     log_likelihood_list <- future_lapply(
       inits_batches,
-      function(batch) grid_search_worker(optimization_context, batch),
-      future.seed = TRUE
+      function(batch) {
+        setup_worker_logging(log_config)
+        grid_search_batch(optimization_context, batch)
+      },
+      future.seed = TRUE,
+      future.scheduling = FALSE,
+      future.packages = "dynConfiRIDP",
+      future.globals = list(
+        optimization_context = optimization_context,
+        log_config = context$log_config
+      )
     )
 
     log_likelihood <- unlist(log_likelihood_list, use.names = FALSE)
@@ -94,8 +106,17 @@ fitting_dynwev_formula <- function(context) {
 
   optim_outs <- future_lapply(
     starts_rows,
-    function(start_params) optimization_node(optimization_context, start_params),
-    future.seed = TRUE
+    function(start_params) {
+      setup_worker_logging(log_config)
+      optimization_node(optimization_context, start_params)
+    },
+    future.seed = TRUE,
+    future.scheduling = FALSE,
+    future.packages = "dynConfiRIDP",
+    future.globals = list(
+      optimization_context = optimization_context,
+      log_config = context$log_config
+    )
   )
 
   node_values <- vapply(optim_outs, function(node_result) {
@@ -148,6 +169,13 @@ fitting_dynwev_formula <- function(context) {
   }
 
   res
+}
+
+#' @keywords internal
+grid_search_batch <- function(optimization_context, batch) {
+  if (optimization_context$logging) log_info("Starting grid search batch...")
+  grid_search_worker(optimization_context, batch)
+  if (optimization_context$logging) log_info("Finished grid search batch...")
 }
 
 #' @keywords internal

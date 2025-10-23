@@ -30,6 +30,7 @@
 #'   log_threshold
 #' @importFrom future
 #'   plan
+#'   tweak
 #'   sequential
 #'   multisession
 #'   multicore
@@ -38,6 +39,8 @@
 #'   nbrOfWorkers
 #' @importFrom future.apply
 #'   future_lapply
+#' @importFrom here
+#'   here
 #' @importFrom stats
 #'   model.matrix
 #'   rnorm
