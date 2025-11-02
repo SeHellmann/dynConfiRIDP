@@ -12,6 +12,7 @@ fitting_dynwev_formula <- function(context) {
       dimnames = list(NULL, context$beta_names)
     )
   } else {
+    # if no grid search, just create a few starting points for the attempts
     inits <- matrix(
       rnorm(context$opts$n_attempts * length(context$beta_names), mean = 0, sd = 0.1),
       nrow = context$opts$n_attempts,
@@ -27,6 +28,7 @@ fitting_dynwev_formula <- function(context) {
 
   if ("st0" %in% context$beta_names) {
     if (context$logging) log_info("Rescaling st0 initials to improve integration time")
+    # rescale st0 initials to lower values, large st0 is very slow to integrate
     inits[, "st0"] <- inits[, "st0"] / 2 - 1.6
   }
 
@@ -44,6 +46,7 @@ fitting_dynwev_formula <- function(context) {
     n_workers <- nbrOfWorkers()
     n_batches <- min(n_workers, n_initials)
 
+    # split the 'inits' matrix into roughly equal batches for parallel workers
     group_indices <- rep(
       seq_len(n_batches),
       each = floor(n_initials / n_batches),
@@ -57,10 +60,11 @@ fitting_dynwev_formula <- function(context) {
       function(indices) inits[indices, , drop = FALSE]
     )
 
+    # run the grid search in parallel using the C++ worker
     log_likelihood_list <- future_lapply(
       inits_batches,
       function(batch) {
-        setup_worker_logging(log_config)
+        setup_worker_logging(log_config) # ensure parallel workers can log
         grid_search_batch(optimization_context, batch)
       },
       future.seed = TRUE,
@@ -73,6 +77,7 @@ fitting_dynwev_formula <- function(context) {
     )
 
     log_likelihood <- unlist(log_likelihood_list, use.names = FALSE)
+    # sort the initial parameter sets by their likelihood
     inits <- inits[order(log_likelihood), ]
 
     if (context$logging) {
@@ -100,14 +105,16 @@ fitting_dynwev_formula <- function(context) {
     ))
   }
 
+  # take the n_attempts best parameter sets from the grid search as starting points
   starts <- inits[seq_len(context$opts$n_attempts), , drop = FALSE]
   starts_rows <- lapply(seq_len(nrow(starts)), function(i) starts[i, ])
   names(starts_rows) <- paste0("attempt_", seq_along(starts_rows))
 
+  # run the n_attempts optimizations in parallel
   optim_outs <- future_lapply(
     starts_rows,
     function(start_params) {
-      setup_worker_logging(log_config)
+      setup_worker_logging(log_config) # ensure parallel workers can log
       optimization_node(optimization_context, start_params)
     },
     future.seed = TRUE,
@@ -119,6 +126,7 @@ fitting_dynwev_formula <- function(context) {
     )
   )
 
+  # find the best result from all parallel attempts
   node_values <- vapply(optim_outs, function(node_result) {
     if (is.na(node_result$best_fit_idx)) return(Inf)
 
@@ -145,6 +153,8 @@ fitting_dynwev_formula <- function(context) {
   #### wrap up results ####
   res <- list()
   if (!is.na(fit$value) && !is.null(fit$params)) {
+    # if some confidence ratings weren't used, the model only fit the used thresholds
+    # this fills in the missing ones (e.g., with Inf) to create a complete, valid parameter set
     if (!is.null(context$used_ratings)) {
       fit$params <- fill_thresholds(fit$params, context$used_ratings, context$initial_n_ratings, context$sym_thetas)
     }
@@ -182,6 +192,8 @@ grid_search_batch <- function(optimization_context, batch) {
 
 #' @keywords internal
 optimization_node <- function(optimization_context, start_params) {
+  # this function is run on each parallel worker for the optimization
+  # it runs the 'n_restarts' loop *sequentially*
   if (optimization_context$logging) {
     log_info(sprintf(
       "Starting optimization node with %d restarts - Initial params: %s",
@@ -197,7 +209,7 @@ optimization_node <- function(optimization_context, start_params) {
   current_params <- start_params
 
   for (i in seq_len(optimization_context$opts$n_restarts)) {
-    # Jitter parameters
+    # Jitter parameters slightly for each restart to escape local minima
     jittered_params <- current_params +
       rnorm(length(current_params), sd = pmax(0.001, abs(current_params / 20)))
 

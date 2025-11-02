@@ -1,0 +1,19 @@
+# RStudio / git
+^.*\.Rproj$
+^\.Rproj\.user$
+^\.gitignore$
+
+# documentation
+^README\.Rmd$
+
+# C++ build artifacts
+^src/.*\.o$
+^src/.*\.so$
+^src/.*\.dll$
+
+# CI/CD and helper scripts
+^\.github$
+^scripts$
+^\.clangd$
+^\.lintr$
+^\.logs$

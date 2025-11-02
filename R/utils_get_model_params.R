@@ -1,6 +1,6 @@
 #' @keywords internal
 get_model_params <- function(context) {
-  # Define necessary parameters for the model
+  # define necessary parameters for the model
   if (context$model %in% DYNWEV_MODELS) {
     context$model_type <- "dynWEV"
     parnames <- DYNWEV_PARNAMES
@@ -24,14 +24,14 @@ get_model_params <- function(context) {
     model_fixed_params <- c(model_fixed_params, "rho" = if (grepl("PC", context$model)) -0.5 else 0)
   }
 
-  # Combine user fixed params with defaults:
+  # combine user fixed params with defaults
   if (!is.null(model_fixed_params)) {
     missing_fixed <- !(names(model_fixed_params) %in% names(context$fixed))
     context$fixed <- c(context$fixed, model_fixed_params[missing_fixed])
   }
   fixed_parnames <- names(context$fixed)
 
-  # Get manipulated parameter names
+  # get manipulated parameter names
   manipulated_parnames <- character(length(context$manipulations))
 
   manipulated_parnames <- vapply(
@@ -41,9 +41,11 @@ get_model_params <- function(context) {
   )
   names(context$manipulations) <- manipulated_parnames
 
+  # 'estimated' params are any params that are *not* fixed and *not* manipulated
   estimated_parnames <- setdiff(parnames, c(manipulated_parnames, fixed_parnames))
 
-  # No overlaps
+  #### sanity checks ####
+  # no overlaps
   if (length(intersect(estimated_parnames, manipulated_parnames)) > 0) {
     stop(sprintf(
       "Invalid parameter overlap: estimated and manipulated parameters overlap: %s",
@@ -65,7 +67,7 @@ get_model_params <- function(context) {
     ))
   }
 
-  # No coverage mismatches
+  # no coverage mismatches
   all_assigned <- c(fixed_parnames, manipulated_parnames, estimated_parnames)
   if (!setequal(parnames, all_assigned)) {
     missing <- setdiff(parnames, all_assigned)
@@ -101,7 +103,7 @@ get_model_params <- function(context) {
     estimated_parnames
   )
 
-  # Fill in default optimizer options if missing
+  # fill in default optimizer options if missing
   missing_opts <- !(names(DEFAULT_OPTS) %in% names(context$opts))
   context$opts <- c(context$opts, DEFAULT_OPTS[missing_opts])
 

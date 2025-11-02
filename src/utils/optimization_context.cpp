@@ -2,6 +2,7 @@
 #include "validate_params.h"
 #include <map>
 
+// maps R-side parameter names (strings) to the C++ ParamType enum
 static const std::map<std::string, ParamType> param_map = {
     {"a", ParamType::a}, {"v", ParamType::v}, {"t0", ParamType::t0},
     {"d", ParamType::d}, {"sz", ParamType::sz}, {"sv", ParamType::sv},
@@ -10,6 +11,9 @@ static const std::map<std::string, ParamType> param_map = {
     {"sigvis", ParamType::sigvis}, {"svis", ParamType::svis}, {"s", ParamType::s}
 };
 
+// the following functions are all helpers for the main constructor
+// they parse the Rcpp::List and organize all parameter mappings into
+// the private std::vector members of the OptimizationContext
 OptimizationContext::OptimizationOptions OptimizationContext::parse_opts(const Rcpp::List& optimization_context_dto) {
     OptimizationOptions opts;
     if (optimization_context_dto.containsElementNamed("opts")) {
@@ -129,14 +133,17 @@ OptimizationContext::OptimizationContext(const Rcpp::List& optimization_context_
 ModelParameters OptimizationContext::get_trial_params(int trial_idx, const arma::vec& beta) const {
     ModelParameters params = {};
 
+    // 1. apply all fixed parameters
     for (const auto& fixed_param : fixed_params) {
         *get_param_pointer(params, fixed_param.type) = fixed_param.value;
     }
 
+    // 2. apply all simple estimated parameters
     for (const auto& estimated_param : estimated_params) {
         *get_param_pointer(params, estimated_param.type) = beta[estimated_param.beta_index];
     }
 
+    // 3. calculate and apply formula-based (manipulated) parameters
     if (!formula_params.empty()) {
         arma::rowvec trial_row = model_matrix.row(trial_idx);
         for (const auto& formula_param : formula_params) {
@@ -149,6 +156,7 @@ ModelParameters OptimizationContext::get_trial_params(int trial_idx, const arma:
         }
     }
 
+    // 4. calculate final confidence thresholds (th1, th2)
     arma::vec thetas = calculate_thetas(beta);
     if (!thetas.is_empty()) {
         int rating = static_cast<int>(dependent_vars(trial_idx, 1));
@@ -166,6 +174,7 @@ ModelParameters OptimizationContext::get_trial_params(int trial_idx, const arma:
         }
     }
     
+    // default muvis to |v| if it wasn't set by fixed/formula/estimated
     if (params.muvis == 0.0) {
         bool was_set = false;
         for (const auto& instr : fixed_params) if (instr.type == ParamType::muvis) was_set = true;
@@ -233,6 +242,8 @@ arma::vec OptimizationContext::calculate_asym_thetas(const arma::vec& beta) cons
     return arma::join_cols(lower_thetas, upper_thetas);
 }
 
+// applies all transformations to convert parameters from the
+// unconstrained optimization scale to the constrained model scale
 void ModelParameters::apply_transformations(const OptimizationContext& optimization_context) {
     // fixed01
     z = R::pnorm(z, 0, 1, 1, 0);
@@ -278,6 +289,8 @@ void ModelParameters::apply_transformations(const OptimizationContext& optimizat
     st0 *= 2.0;
 }
 
+// packages the final parameters into the raw vector format
+// that the g_minus_WEVmu function expects.
 Rcpp::NumericVector ModelParameters::to_density_vector(bool boundary, double precision) const {
     Rcpp::NumericVector p(20);
     
@@ -314,6 +327,8 @@ Rcpp::NumericVector ModelParameters::to_density_vector(bool boundary, double pre
     return p;
 }
 
+// helper function to get a pointer to a struct member by its enum type
+// this avoids a giant, repetitive switch-case in get_trial_params
 double* OptimizationContext::get_param_pointer(ModelParameters& params, ParamType type) const {
     switch (type) {
         case ParamType::a: return &params.a;

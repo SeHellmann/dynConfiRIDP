@@ -451,6 +451,7 @@ validate_input_data <- function(
   )
 }
 
+# helper function to create concise summaries of objects for error messages
 #' @keywords internal
 describe <- function(x, max_lines = 5) {
   out <- capture.output(str(x))

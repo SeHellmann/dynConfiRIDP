@@ -1,181 +1,92 @@
-<!-- badges: start -->
+# dynConfiRIDP: R package for sequential sampling models of decision confidence
 
-[![Codecov test
-coverage](https://codecov.io/gh/SeHellmann/dynConfiR/branch/main/graph/badge.svg)](https://app.codecov.io/gh/SeHellmann/dynConfiR?branch=main)
+This package provides functions for fitting, predicting, and simulating data based on *Sequential Sampling Models of Decision-Making and Confidence Judgments*. It uses a **formula-based** interface to allow for easy specification of experimental manipulations (e.g., `a ~ SAT`).
 
-<!-- badges: end -->
+This repository branch (`integration`) is a significant architectural rework of the original **dynConfiR** package, completed as part of an Interdisciplinary Project (IDP). It features a refactored Cpp backend and a more modular R-side architecture.
 
-# dynConfiR: R package for sequential sampling models of decision confidence
+The package includes density functions for decision, confidence, and response time outcomes for several models, including:
+- Dynamic Visibility, Time, and Evidence model (**dynaViTE**)
+- Dynamic Weighted Evidence and Visibility (**dynWEV**)
+- Two-Stage Signal Detection (**2DSD**)
+- Independent and Partially-Correlated Race Models (**IRM/PCRM**)
 
-This package includes implementation for several sequential sampling
-models of decision making and confidence judgments. The package includes
-density functions for decision, confidence and response time outcomes
-for following models: Dynamic visibility, time, and evidence model
-(dynaViTE), Dynamic weighted evidence and visibility (dynWEV), two-stage
-signal detection (2DSD), inpedendent and partially-correlated race
-models (IRM/PCRM) (see [Hellmann et
-al. 2023)](https://doi.org/10.1037/rev0000411) for details; Preprint
-available [here](https://osf.io/9jfqr)). In addition, the package
-includes functions for parameter fitting, prediction and simulation of
-data.
+(see [Hellmann et
+al. 2023](https://doi.org/10.1037/rev0000411) for details, preprint
+available [here](https://osf.io/9jfqr))
+
+## Table of Contents
+- [Installation](#installation)
+- [Package Structure](#package-structure)
+- [Collaboration](#collaboration)
+- [Open Issues](#open-issues)
+- [References](#references)
+- [Contact](#contact)
 
 ## Installation
 
-The latest released version of the package is available on CRAN via
+This `integration` branch contains the development version of the package. You can install it using `devtools`:
 
-`install.packages("dynConfiR")`
-
-For the current development version, the easiest way of installation is
-using `devtools` and install from GitHub:
-
-    devtools::install_github("SeHellmann/dynConfiR")
-
-## Usage
-
-### Density functions
-
-``` r
-library(dynConfiR)
-d2DSD(rt=0.7, th1=1, th2=2.5, response="lower", 
-      a=2, v=0.7, t0=0, z =0.5, sv=0, st0=0.1, tau=1, lambda=0.5)
+```R
+devtools::install_github("SeHellmann/dynConfiRIDP", ref = "integration")
 ```
 
-    ## [1] 0.02387629
+For the latest stable version (from the main branch), you can install from **CRAN**:
 
-``` r
-dWEV(rt=2.7, th1=1, th2=2.5, response="lower", 
-      tau=1, a=2, v=0.7, t0=0, z =0.5, sv=0, st0=0.1, lambda=0.2,
-     simult_conf = TRUE)
+```R
+install.packages("dynConfiR")
 ```
+## Package Structure
 
-    ## [1] 0.0143774
+This branch features a new architecture designed to be more modular, efficient, and maintainable. It separates the R-side user interface from the Cpp backend and isolates helper functions into distinct utility submodules.
 
-``` r
-dIRM(1.2, response=2, mu1=0.5, mu2=-0.5, a=0.8, b=0.5, th1=-0.5, th2=2, 
-     wx=0.5, wrt=0.2, wint=0.3, t0=0.3, st0=0.2)
-```
+![Alt text](assets/package_structure.svg)
 
-    ## [1] 0.07616855
+### R Module (the Orchestrator)
 
-``` r
-dPCRM(1.2, response=2, mu1=0.5, mu2=-0.5, a=0.8, b=0.5, th1=-0.5, th2=2, 
-     wx=0.5, wrt=0.2, wint=0.3, t0=0.3, st0=0.2)
-```
+This module contains all R code and manages the user interface, data preparation, and optimization control.
 
-    ## [1] 0.08346152
+- **Exported Functions**: `fit_rtconf_models_formula` is the main parallel wrapper for fitting multiple subjects or models. It calls `fit_rtconf_formula` for each individual fit.
+- **Internal Fitting Logic**: `fitting_dynwev_formula` is the internal "main" function for a single fit. It orchestrates the process:
+  1. Sets up a parameter grid for the **grid search**.
+  2. Calls the Cpp `grid_search_worker` in parallel to find the best starting points.
+  3. Calls the Cpp `nlopt_optimizer` in parallel for the `n_attempts` best starting points.
+  4. Formats the final result.
+- **R Utils Submodule**: A set of helper scripts responsible for all R-side logic:
+  - `utils_validate_args.R`: Provides user-friendly error messages by validating all function arguments before execution.
+  - `utils_get_context.R`: Creates the `context` objects (one for R, one for Cpp) that pass state through the application.
+  - `utils_process_input_data.R`: Cleans, validates, and transforms the input `data.frame` into the `dependent_vars` matrix.
+  - `utils_get_model_params.R`: Sorts parameters into fixed, estimated, and manipulated categories and sets model-specific defaults.
+  - `utils_build_model_matrix.R`: Uses `stats::model.matrix` to build the predictor matrix and creates the index mappings for Cpp.
+  `utils_setup_jobs.R` & `utils_setup_parallel.R`: Configure the future parallel backend (flat or nested) and prepare the list of all model-subject jobs.
+  - `utils_fill_thresholds.R`: A post-processing helper to fill in un-fittable confidence thresholds if a subject did not use all ratings.
 
-## Workflow for data analysis
+### Cpp Module (the Backend)
+This module, written in Cpp with Rcpp, handles all high-performance computation. It is designed to be a "state-aware" backend that receives all necessary data from R in a single DTO.
+- **Entry Points**: `grid_search_worker` and `nlopt_optimizer` are the two Rcpp exported functions called directly by R. They receive the DTO and manage the Cpp-side optimization process.
+- **Optimization Logic**: `neg_loglikelihood` is the core objective function. It iterates over all trials, calling `get_trial_params` to get the parameters for that specific trial and summing the log-likelihood from the `densities`.
+- **Cpp Utils Submodule**:
+  - `optimization_context.hpp/.cpp`: Defines the `OptimizationContext` class, the main Data Transfer Object (DTO) from R. It holds all constant data (model matrix, dependent variables, parameter mappings) for the entire fit.
+  - `ModelParameters`: A Cpp struct defined in `optimization_context.hpp` that holds the parameters for a single trial after transformations.
+  - `logger.hpp`: A utility that bridges Cpp logging calls back to the R `logger` package, allowing Cpp code to log to the same file as R with the same log layout.
+  - `validate_params.h`: A Cpp-side helper for validating parameter sets before they are used by the density functions.
+- **Densities**: The core `g_minus_WEVmu` density function (and others, e.g., `density_2DSD`) are called by `neg_loglikelihood`.
+- **NLopt Integration**: The Cpp optimizer uses the `nloptr` R package to link to the C API headers for the NLopt library. This avoids needing to bundle the entire NLopt library with this package. (see a similar example [here](https://github.com/eddelbuettel/rcppnloptexample)).
 
-When using the package for model comparison, the suggested workflow is:
+## Collaboration
 
-<figure>
-<img src="man/figures/Workflow.jpg"
-alt="Package workflow for model comparison" />
-<figcaption aria-hidden="true">Package workflow for model
-comparison</figcaption>
-</figure>
+To improve the onboarding and development workflow for collaborators:
+- **Continuous Integration**: The package includes a GitHub Action workflow (`.github/workflows/R-CMD-check.yaml`) that automatically runs `R CMD check` on Windows, macOS, and Ubuntu for every push and pull request to the main and integration branches. This ensures the package is always installable on all major operating systems.
+- **IDE Setup**: The `scripts/configure_clangd.R` script generates a `.clangd` file. This provides Cpp auto-completion, linting, and error-checking in IDEs, making Cpp development much easier.
 
-Data should be of the form
+## Open Issues
 
-``` r
-head(data)
-```
-
-    ##   participant direction coherence response   rt rating
-    ## 1           1      left       0.3     left 1.21      2
-    ## 2           1      left       0.5     left 1.09      3
-    ## 3           1     right       0.3     left 0.97      2
-    ## 4           1     right       0.5     left 1.45      1
-    ## 5           1      left       0.1    right 1.22      1
-
-where the task may have been to discriminate `direction` and `coherence`
-was manipulated for higher or lower accuracy. Fitting confidence models
-requires the data to be in a `data.frame` or `tibble` object with
-columns for following variables:
-
-- stimulus: In a binary decision task the stimulus identity gives the
-  correct response
-- condition: The experimental manipulation that is expected to affect
-  model parameters should be present
-- response: The actual decision in the choice task
-- rt: The recorded response time.
-- rating: A discrete variable encoding the decision confidence (high:
-  very confident; low: less confident)
-
-Alternatively to `stimulus` or `response` it is possible to use a
-column, `correct`, representing whether the decision was correct or
-wrong. Alternative column names may be passed to the fitting functions
-(see below).
-
-### Fitting
-
-If there are several participants, for which the models should be fitted
-independently, and the models of interest are dynWEV and 2DSD, then
-fitting the models is done using the `fitRTConfModels` function:
-
-    fitted_pars <- fitRTConfModels(data, models=c("dynWEV","2DSD"), stimulus="direction", condition="coherence")
-
-By default, this parallelizes the fitting process over participant-model
-combinations. The output is then a data frame with one row for each
-participant-model combination and columns for parameters and measures
-for model performance (negative log-likelihood, BIC, AIC and AICc).
-These may be used for quantitative model comparison.
-
-``` r
-head(fitted_pars)
-```
-
-    ##    participant model    a    z   sz   v1   v2   v3   sv   t0  st0 thetaLower1
-    ## 1            1  2DSD 1.90 0.35 0.35 0.01 0.00 2.14 0.18 0.24 0.45       -1.29
-    ## 21           3  2DSD 2.53 0.39 0.16 0.00 0.02 1.02 0.54 0.33 0.22       -0.95
-    ## 28           4  2DSD 1.70 0.43 0.62 0.00 0.01 2.05 0.00 0.33 0.33       -1.82
-    ## 29           5  2DSD 1.94 0.43 0.00 0.00 0.83 3.34 0.60 0.33 0.09       -1.76
-    ## 30           6  2DSD 1.33 0.51 0.51 0.00 0.01 2.27 0.81 0.38 0.35       -1.70
-    ## 31           7  2DSD 1.67 0.74 0.47 0.03 0.01 3.49 0.26 0.34 0.58       -1.92
-    ##    thetaLower2 thetaUpper1 thetaUpper2 tau negLogLik   N  k     BIC    AICc
-    ## 1        -0.90        2.15        2.19   1   1019.23 527 20 2163.80 2079.96
-    ## 21       -0.73        2.63        2.71   1   1475.68 534 20 3076.97 2992.84
-    ## 28       -1.60        1.58        1.79   1    967.71 533 20 2060.99 1976.90
-    ## 29       -1.41        2.96        3.20   1    741.86 536 20 1609.41 1525.20
-    ## 30       -1.41        1.75        2.13   1    911.06 531 20 1947.62 1863.61
-    ## 31        0.05        3.09        3.09   1    647.34 533 20 1420.25 1336.17
-    ##        AIC  w sig sigmu
-    ## 1  2078.45 NA  NA    NA
-    ## 21 2991.36 NA  NA    NA
-    ## 28 1975.42 NA  NA    NA
-    ## 29 1523.72 NA  NA    NA
-    ## 30 1862.12 NA  NA    NA
-    ## 31 1334.68 NA  NA    NA
-
-### Prediction
-
-For prediction the functions `predictConf` and `predictRT` are used,
-together with parameter sets for the respective models. For multiple
-participants and models, the output data frame from the function
-`fitRTConfModels` may be used in the functions `predictConfModels` and
-`predictRTModels` to simultaneously (and in parallel) predict the
-distributions.
-
-- `predictConf`: This function predicts the distribution of decision and
-  rating responses (ignoring response times) for the different stimulus
-  conditions.
-- `predictRT`: This function computes the probability densities for
-  decision, confidence and response time outputs over a range of
-  response times for different stimulus conditions. If required, it also
-  returns a scaled density (i.e. the conditional probability of a
-  certain response time, given the decision and confidence response) -
-  for this the output of `predictConf` is required.
-
-**Usage example:**
-
-    fitted_pars %>% 
-      group_by(model, participant) %>% 
-      summarise(predictConf(pick(everything()), model=cur_group()$model[1]))
-
-## Further functions
-
-Implementation of a simulation of observations in the Leaky Competing
-Accumulator model (see `rLCA`).
+This rework focused on building a robust, formula-based architecture for the **dynaViTE**/**dynWEV**/**2DSD** model family. The following items are key next steps:
+- **Extend to Race Models**: Integrate the existing Race Models (**IRM**/**PCRM**) density functions with the C++ `OptimizationContext` and update the R-side `fit_rtconf_formula_dispatcher` to support them.
+- **Implement More Optimizers**: The `nlopt_optimizer.cpp` file only supports **Nelder-Mead** and **bobyqa**. This should be extended to support other optimization algorithms (e.g., **L-BFGS-B**).
+- **End-to-End Benchmarking**: Enhance the `fit_rtconf_models_formula` wrapper to systematically track and report the wall-clock time for each model-subject fit, providing a simple framework for performance profiling.
+- **Improve Nested Parallelism**: Make the nested parallel plan (`n_cores = c(outer, inner)`) more robust, particularly in handling error propagation, logging, and potential orphaned processes from inner workers.
+- **Refactor Density Interface**: The `ModelParameters` struct currently uses the Adapter Pattern (via the `to_density_vector` method) to communicate with the legacy density functions. This interface should be refactored so the density functions can accept the `ModelParameters` struct directly.
+- **CI/CD Unit Tests**: The current GitHub Action only checks that the package *builds* and *installs*. A full `testthat` suite should be added to validate the numerical correctness of the density functions and the fitting process.
 
 ## References
 

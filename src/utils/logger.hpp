@@ -3,6 +3,12 @@
 #include <Rcpp.h>
 #include <string>
 
+/**
+ * @brief A simple C++ logger that bridges to the R 'logger' package.
+ *
+ * This allows C++ code to write to the same log files (info, warn, error)
+ * as the main R process, which is essential for debugging parallel fits.
+ */
 namespace Logger {
     static bool logging = false;
 
@@ -14,10 +20,11 @@ namespace Logger {
         if (!logging) return;
 
         try {
+            // find the R function (e.g., logger::log_info)
             Rcpp::Function log_fn = Rcpp::Environment::namespace_env("logger")[std::string("log_") + level];
             log_fn(msg);
         } catch (...) {
-            // Fallback to Rcout if logger fails
+            // fallback to Rcout if logger fails
             Rcpp::Rcout << "[" << level << "] " << msg << std::endl;
         }
     }

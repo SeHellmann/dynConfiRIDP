@@ -1,0 +1,10 @@
+linters: linters_with_defaults(
+    line_length_linter(120),
+    object_name_linter = object_name_linter(styles = c("snake_case", "symbols", "SNAKE_CASE")),
+    commented_code_linter = NULL
+  )
+exclustions: list(
+    "src/",
+    "src/densities",
+    "src/utils"
+  )

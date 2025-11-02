@@ -1,6 +1,6 @@
 #' @keywords internal
 setup_jobs <- function(context, models, manipulations) {
-  ### Determine number of jobs, i.e. model-participant-combinations
+  # determine number of jobs, i.e. model-participant-combinations
   potential_sbj_cols <- c("sbj", "participant", "subject")
   sbjcol <- potential_sbj_cols[potential_sbj_cols %in% names(context$data)][1]
   if (is.na(sbjcol)) {
@@ -13,15 +13,19 @@ setup_jobs <- function(context, models, manipulations) {
   }
   subjects <- unique(context$data$sbj)
 
-  # Prepare the job list for combinations of models & subjects
+  # prepare the job list for combinations of models and subjects
   jobs <- expand.grid(model = seq_along(models), sbj = subjects)
   jobs_list <- vector("list", nrow(jobs))
 
   for (i in seq_len(nrow(jobs))) {
     model_idx <- jobs$model[i]
+
+    # handle the two ways manipulations can be provided:
+    # 1. single list of formulas (applied to all models)
     if (length(manipulations) == 0 || inherits(manipulations[[1]], "formula")) {
       curr_manipulations <- manipulations
     } else {
+      # 2. list-of-lists (one for each model)
       curr_manipulations <- manipulations[[model_idx]]
     }
     jobs_list[[i]] <- list(

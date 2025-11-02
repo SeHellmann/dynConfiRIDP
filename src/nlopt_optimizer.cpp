@@ -8,11 +8,14 @@
 #include "utils/optimization_context.hpp"
 #include "utils/logger.hpp"
 
-const int max_bad_trials = 15;           // Absolute limit: 15 bad trials
-const double max_bad_ratio = 0.15;       // Relative limit: 15% bad trials
-const int min_trials_for_ratio = 30;     // Only check ratio after 30 trials
+// these are used by the grid search to quickly reject bad parameter sets
+// without calculating the likelihood for all trials
+// can and should be fine-tuned for better overall performance
+const int max_bad_trials = 15;           // absolute limit: 15 bad trials
+const double max_bad_ratio = 0.15;       // relative limit: 15% bad trials
+const int min_trials_for_ratio = 30;     // only check ratio after 30 trials
 const double bailout_threshold = -1e6;   // logLikelihood threshold
-const int bailout_check_after = 50;      // Check likelihood after 50 trials
+const int bailout_check_after = 50;      // check likelihood after 50 trials
 
 double calculate_neg_loglikelihood(
     OptimizationContext& optimization_context, 
@@ -97,12 +100,14 @@ double calculate_neg_loglikelihood(
     return -total_logl;
 }
 
+// the objective function required by NLopt's C API
 double neg_loglikelihood(
     unsigned n,
     const double* x,
     double* grad,
     void* func_data
 ) {
+    // cast void* data back to our C++ context object
     OptimizationContext* optimization_context = static_cast<OptimizationContext*>(func_data);
     arma::vec beta(const_cast<double*>(x), n, false, true);
 
@@ -124,6 +129,7 @@ double neg_loglikelihood(
     return negLogLik;
 }
 
+// runs the main optimization for a single set of start_params
 // [[Rcpp::export]]
 Rcpp::List nlopt_optimizer(const Rcpp::List& optimization_context_dto, Rcpp::NumericVector start_params) {
     try {
@@ -137,6 +143,7 @@ Rcpp::List nlopt_optimizer(const Rcpp::List& optimization_context_dto, Rcpp::Num
            << " and " << n_params << " parameters";
         Logger::info(ss.str());
         
+        // setup nlopt_opt (e.g., "Nelder-Mead" or "bobyqa")
         nlopt_opt opt;
         if (optimization_context.optim_method == "Nelder-Mead") {
             opt = nlopt_create(NLOPT_LN_NELDERMEAD, n_params);
@@ -155,6 +162,7 @@ Rcpp::List nlopt_optimizer(const Rcpp::List& optimization_context_dto, Rcpp::Num
 
         nlopt_set_min_objective(opt, neg_loglikelihood, &optimization_context);
 
+        // set optimizer controls
         nlopt_set_ftol_rel(opt, optimization_context.opts.reltol);
         nlopt_set_xtol_rel(opt, optimization_context.opts.reltol);
         nlopt_set_ftol_abs(opt, 1e-10);
@@ -207,6 +215,7 @@ Rcpp::List nlopt_optimizer(const Rcpp::List& optimization_context_dto, Rcpp::Num
     }
 }
 
+// runs the grid search over a matrix of initial parameter sets
 // [[Rcpp::export]]
 Rcpp::NumericVector grid_search_worker(const Rcpp::List& optimization_context_dto, Rcpp::NumericMatrix inits_matrix) {
     OptimizationContext optimization_context(optimization_context_dto);

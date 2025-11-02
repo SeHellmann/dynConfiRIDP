@@ -1,13 +1,22 @@
-.DS_Store
-.vscode
-.Rbuildignore
+# R user-specific files
 .Rproj.user
 .Rhistory
 .RData
 .Ruserdata
-.clangd
-.lintr
+
+# generated package files (by devtools::document())
+/man/
+/NAMESPACE
+
+# C++ object files
+*.o
+*.so
+*.dll
+
+# log files from fitting scripts
 .logs/
-src/**/*.o
-src/**/*.so
-src/**/*.dll
+
+# others
+.DS_Store
+.vscode/
+.clangd

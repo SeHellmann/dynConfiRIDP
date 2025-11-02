@@ -9,6 +9,9 @@ setup_parallel <- function(context) {
 
   if (length(n_cores) > 1) {
     #### nested parallel setup ####
+    # e.g., n_cores = c(4, 2)
+    # n_outer = 4 (for model-subject jobs)
+    # n_inner = 2 (for n_attempts within each job)
     n_outer <- n_cores[1]
     n_inner <- n_cores[2]
     n_requested <- n_outer * n_inner
@@ -35,6 +38,9 @@ setup_parallel <- function(context) {
     }
   } else {
     #### flat parallel setup ####
+    # e.g., n_cores = 8
+    # this will parallelize *only* the model-subject jobs in fit_rtconf_models_formula
+    # and *only* the n_attempts in fit_rtconf_formula
     n_single <- n_cores[1]
     n_requested <- n_single
 

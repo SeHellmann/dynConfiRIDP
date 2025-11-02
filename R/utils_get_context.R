@@ -1,5 +1,8 @@
+# initializes the base 'context' list
+# that will be passed through the entire R-side fitting process
+# this acts as a central "state manager" list
+# holding all arguments, data, and intermediate objects
 #' @keywords internal
-#' @noRd
 get_base_context <- function(args) {
   c(args, list(
     #### placeholders for derived values
@@ -22,8 +25,11 @@ get_base_context <- function(args) {
   ))
 }
 
+# creates the specific, lean list object required by
+# the C++ optimization functions (nlopt_optimizer and grid_search_worker)
+# this strips down the main R 'context' to only what C++ needs,
+# acting as the "Data Transfer Object" (DTO) to C++
 #' @keywords internal
-#' @noRd
 get_dynwev_optimization_context <- function(context) {
   list(
     dependent_vars = context$dependent_vars,

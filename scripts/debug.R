@@ -16,6 +16,7 @@ packageVersion(pkg)
 
 library(dplyr)
 
+load("scripts/Preprocessed_SATdata.RData")
 data <- SATdata %>% select(-RT2, -confidence) %>% mutate(SAT = factor(SAT), condition = factor(condition))
 models <- c("dynaViTE")
 fixed <- list(z = 0.5, lambda = 1, svis = 1)

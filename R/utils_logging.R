@@ -1,3 +1,4 @@
+# sets up the primary logger for the main R process
 #' @keywords internal
 setup_main_logging <- function(context) {
   if (!context$logging) return(context)
@@ -9,6 +10,8 @@ setup_main_logging <- function(context) {
   apply_log_settings(context, base_dir, identifier, log_tag)
 }
 
+# sets up a subject-specific logger, creating a dedicated
+# log file for a single participant-model fit
 #' @keywords internal
 setup_subject_logging <- function(context) {
   if (!context$logging) return(context)
@@ -36,6 +39,9 @@ setup_subject_logging <- function(context) {
   apply_log_settings(context, base_dir, identifier, log_tag)
 }
 
+# used to apply logging settings (layout, file) to a
+# parallel worker (e.g., in a future_lapply call)
+# this ensures that parallel processes also write to the log file
 #' @keywords internal
 setup_worker_logging <- function(log_config) {
   if (is.null(log_config)) return(invisible())
@@ -45,6 +51,8 @@ setup_worker_logging <- function(log_config) {
   log_threshold(log_config$threshold, index = 2)
 }
 
+# helper function that creates the log directory and defines
+# the log message format (layout)
 #' @keywords internal
 apply_log_settings <- function(context, base_dir, identifier, log_tag) {
   timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
@@ -85,6 +93,7 @@ apply_log_settings <- function(context, base_dir, identifier, log_tag) {
   log_appender(appender_file(log_file), index = 2)
   log_threshold(DEBUG, index = 2)
 
+  # store the log config in the context so parallel workers can access it
   context$log_config <- list(
     layout = layout,
     log_file = log_file,
@@ -97,6 +106,8 @@ apply_log_settings <- function(context, base_dir, identifier, log_tag) {
   context
 }
 
+# saves intermediate or final optimization states (.RData files)
+# to the .logs/ directory for debugging
 #' @keywords internal
 save_optimization_state <- function(context, state_data, type = c("grid_search", "optimization", "final")) {
   if (!context$logging) return(invisible())

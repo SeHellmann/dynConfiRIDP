@@ -1,3 +1,10 @@
+# this file defines global constants used throughout the R package
+# to ensure consistency:
+# - MODEL lists define all supported model names.
+# - PARNAMES lists define all possible parameters for each model family.
+# - OPTIM_METHODS and DEFAULT_OPTS set the allowed optimizers and
+#   their default settings.
+
 # "2DSDT", "DDMConf" ??
 DYNWEV_MODELS <- c("2DSD", "dynWEV", "dynaViTE")
 RM_MODELS <- c("IRM", "PCRM", "IRMt", "PCRMt")
