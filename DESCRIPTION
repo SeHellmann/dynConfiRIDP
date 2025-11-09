@@ -37,6 +37,7 @@ Imports:
     logger
 Suggests:
     testthat (>= 3.0.0),
+    roxygen2,
     ggplot2,
     Hmisc,
     rmarkdown,

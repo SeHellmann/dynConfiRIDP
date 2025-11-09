@@ -75,7 +75,7 @@ This module, written in Cpp with Rcpp, handles all high-performance computation.
 ## Collaboration
 
 To improve the onboarding and development workflow for collaborators:
-- **Continuous Integration**: The package includes a GitHub Action workflow (`.github/workflows/R-CMD-check.yaml`) that automatically runs `R CMD check` on Windows, macOS, and Ubuntu for every push and pull request to the main and integration branches. This ensures the package is always installable on all major operating systems.
+- **Continuous Integration**: The package includes a GitHub Action workflow (`.github/workflows/R-CMD-check.yaml`) that automatically runs `R CMD check` on Windows, macOS, and Ubuntu for every push and pull request to the main and integration branches. This process now incorporates the initial setup for a `testthat` suite, which runs a simple sanity check to verify that the package properly builds and links its Cpp backend. This enhances the **CI** by confirming the package is not only installable but also correctly compiled.
 - **IDE Setup**: The `scripts/configure_clangd.R` script generates a `.clangd` file. This provides Cpp auto-completion, linting, and error-checking in IDEs, making Cpp development much easier.
 
 ## Open Issues
@@ -87,7 +87,7 @@ This rework focused on building a robust, formula-based architecture for the **d
 - **End-to-End Benchmarking**: Enhance the `fit_rtconf_models_formula` wrapper to systematically track and report the wall-clock time for each model-subject fit, providing a simple framework for performance profiling.
 - **Improve Nested Parallelism**: Make the nested parallel plan (`n_cores = c(outer, inner)`) more robust, particularly in handling error propagation, logging, and potential orphaned processes from inner workers.
 - **Refactor Density Interface**: The `ModelParameters` struct currently uses the Adapter Pattern (via the `to_density_vector` method) to communicate with the legacy density functions. This interface should be refactored so the density functions can accept the `ModelParameters` struct directly.
-- **CI/CD Unit Tests**: The current GitHub Action only checks that the package *builds* and *installs*. A full `testthat` suite should be added to validate the numerical correctness of the density functions and the fitting process.
+- **CI/CD Unit Tests**: A minimal `testthat` suite has been added to verify the core build and Cpp linking. This initial setup should be expanded by adding more tests to validate all the different functionalities of the package (*pre-processing, density functions, ...*).
 
 ## References
 
