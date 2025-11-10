@@ -17,3 +17,6 @@
 ^\.clangd$
 ^\.lintr$
 ^\.logs$
+^_pkgdown\.yml$
+^docs$
+^pkgdown$
