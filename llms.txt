@@ -52,9 +52,9 @@ efficient, and maintainable. It separates the R-side user interface from
 the Cpp backend and isolates helper functions into distinct utility
 submodules.
 
-![Alt text](assets/package_structure.svg)
+![Package Structure](reference/figures/package_structure.svg)
 
-Alt text
+Package Structure
 
 ### R Module (the Orchestrator)
 
@@ -85,7 +85,8 @@ preparation, and optimization control.
   - `utils_build_model_matrix.R`: Uses
     [`stats::model.matrix`](https://rdrr.io/r/stats/model.matrix.html)
     to build the predictor matrix and creates the index mappings for
-    Cpp. `utils_setup_jobs.R` & `utils_setup_parallel.R`: Configure the
+    Cpp.
+  - `utils_setup_jobs.R` & `utils_setup_parallel.R`: Configure the
     future parallel backend (flat or nested) and prepare the list of all
     model-subject jobs.
   - `utils_fill_thresholds.R`: A post-processing helper to fill in
@@ -96,75 +97,88 @@ preparation, and optimization control.
 
 This module, written in Cpp with Rcpp, handles all high-performance
 computation. It is designed to be a “state-aware” backend that receives
-all necessary data from R in a single DTO. - **Entry Points**:
-`grid_search_worker` and `nlopt_optimizer` are the two Rcpp exported
-functions called directly by R. They receive the DTO and manage the
-Cpp-side optimization process. - **Optimization Logic**:
-`neg_loglikelihood` is the core objective function. It iterates over all
-trials, calling `get_trial_params` to get the parameters for that
-specific trial and summing the log-likelihood from the `densities`. -
-**Cpp Utils Submodule**: - `optimization_context.hpp/.cpp`: Defines the
-`OptimizationContext` class, the main Data Transfer Object (DTO) from R.
-It holds all constant data (model matrix, dependent variables, parameter
-mappings) for the entire fit. - `ModelParameters`: A Cpp struct defined
-in `optimization_context.hpp` that holds the parameters for a single
-trial after transformations. - `logger.hpp`: A utility that bridges Cpp
-logging calls back to the R `logger` package, allowing Cpp code to log
-to the same file as R with the same log layout. - `validate_params.h`: A
-Cpp-side helper for validating parameter sets before they are used by
-the density functions. - **Densities**: The core `g_minus_WEVmu` density
-function (and others, e.g., `density_2DSD`) are called by
-`neg_loglikelihood`. - **NLopt Integration**: The Cpp optimizer uses the
-`nloptr` R package to link to the C API headers for the NLopt library.
-This avoids needing to bundle the entire NLopt library with this
-package. (see a similar example
-[here](https://github.com/eddelbuettel/rcppnloptexample)).
+all necessary data from R in a single DTO.
+
+- **Entry Points**: `grid_search_worker` and `nlopt_optimizer` are the
+  two Rcpp exported functions called directly by R. They receive the DTO
+  and manage the Cpp-side optimization process.
+- **Optimization Logic**: `neg_loglikelihood` is the core objective
+  function. It iterates over all trials, calling `get_trial_params` to
+  get the parameters for that specific trial and summing the
+  log-likelihood from the `densities`.
+- **Cpp Utils Submodule**:
+  - `optimization_context.hpp/.cpp`: Defines the `OptimizationContext`
+    class, the main Data Transfer Object (DTO) from R. It holds all
+    constant data (model matrix, dependent variables, parameter
+    mappings) for the entire fit.
+  - `ModelParameters`: A Cpp struct defined in
+    `optimization_context.hpp` that holds the parameters for a single
+    trial after transformations.
+  - `logger.hpp`: A utility that bridges Cpp logging calls back to the R
+    `logger` package, allowing Cpp code to log to the same file as R
+    with the same log layout.
+  - `validate_params.h`: A Cpp-side helper for validating parameter sets
+    before they are used by the density functions.
+- **Densities**: The core `g_minus_WEVmu` density function (and others,
+  e.g., `density_2DSD`) are called by `neg_loglikelihood`.
+- **NLopt Integration**: The Cpp optimizer uses the `nloptr` R package
+  to link to the C API headers for the NLopt library. This avoids
+  needing to bundle the entire NLopt library with this package. (see a
+  similar example
+  [here](https://github.com/eddelbuettel/rcppnloptexample)).
 
 ## Collaboration
 
-To improve the onboarding and development workflow for collaborators: -
-**Continuous Integration**: The package includes a GitHub Action
-workflow (`.github/workflows/R-CMD-check.yaml`) that automatically runs
-`R CMD check` on Windows, macOS, and Ubuntu for every push and pull
-request to the main and integration branches. This process now
-incorporates the initial setup for a `testthat` suite, which runs a
-simple sanity check to verify that the package properly builds and links
-its Cpp backend. This enhances the **CI** by confirming the package is
-not only installable but also correctly compiled. - **IDE Setup**: The
-`scripts/configure_clangd.R` script generates a `.clangd` file. This
-provides Cpp auto-completion, linting, and error-checking in IDEs,
-making Cpp development much easier.
+To improve the onboarding and development workflow for collaborators:
+
+- **Continuous Integration**: The package includes a GitHub Action
+  workflow (`.github/workflows/R-CMD-check.yaml`) that automatically
+  runs `R CMD check` on Windows, macOS, and Ubuntu for every push and
+  pull request to the main and integration branches. This process now
+  incorporates the initial setup for a `testthat` suite, which runs a
+  simple sanity check to verify that the package properly builds and
+  links its Cpp backend. This enhances the **CI** by confirming the
+  package is not only installable but also correctly compiled.
+- **IDE Setup**: The `scripts/configure_clangd.R` script generates a
+  `.clangd` file. This provides Cpp auto-completion, linting, and
+  error-checking in IDEs, making Cpp development much easier.
 
 ## Open Issues
 
 This rework focused on building a robust, formula-based architecture for
 the **dynaViTE**/**dynWEV**/**2DSD** model family. The following items
-are key next steps: - **Extend to Race Models**: Integrate the existing
-Race Models (**IRM**/**PCRM**) density functions with the C++
-`OptimizationContext` and update the R-side
-`fit_rtconf_formula_dispatcher` to support them. - **Implement More
-Optimizers**: The `nlopt_optimizer.cpp` file only supports
-**Nelder-Mead** and **bobyqa**. This should be extended to support other
-optimization algorithms (e.g., **L-BFGS-B**). - **Optimize Grid
-Search**: Refine the initial grid search strategy. The current
-implementation uses a simple random search (`rnorm`) to find starting
-points. This could be improved by for example incorporating
-domain-specific parameter priors to cover the parameter space more
-efficiently. - **End-to-End Benchmarking**: Enhance the
-`fit_rtconf_models_formula` wrapper to systematically track and report
-the wall-clock time for each model-subject fit, providing a simple
-framework for performance profiling. - **Improve Nested Parallelism**:
-Make the nested parallel plan (`n_cores = c(outer, inner)`) more robust,
-particularly in handling error propagation, logging, and potential
-orphaned processes from inner workers. - **Refactor Density Interface**:
-The `ModelParameters` struct currently uses the Adapter Pattern (via the
-`to_density_vector` method) to communicate with the legacy density
-functions. This interface should be refactored so the density functions
-can accept the `ModelParameters` struct directly. - **CI/CD Unit
-Tests**: A minimal `testthat` suite has been added to verify the core
-build and Cpp linking. This initial setup should be expanded by adding
-more tests to validate all the different functionalities of the package
-(*pre-processing, density functions, …*).
+are key next steps:
+
+- **Extend to Race Models**: Integrate the existing Race Models
+  (**IRM**/**PCRM**) density functions with the C++
+  `OptimizationContext` and update the R-side
+  `fit_rtconf_formula_dispatcher` to support them.
+- **Implement More Optimizers**: The `nlopt_optimizer.cpp` file only
+  supports **Nelder-Mead** and **bobyqa**. This should be extended to
+  support other optimization algorithms (e.g., **L-BFGS-B**).
+- **Optimize Grid Search**: Refine the initial grid search strategy. The
+  current implementation uses a simple random search (`rnorm`) to find
+  starting points. This could be improved by for example incorporating
+  domain-specific parameter priors to cover the parameter space more
+  efficiently.
+- **End-to-End Benchmarking**: Enhance the `fit_rtconf_models_formula`
+  wrapper to systematically track and report the wall-clock time for
+  each model-subject fit, providing a simple framework for performance
+  profiling.
+- **Improve Nested Parallelism**: Make the nested parallel plan
+  (`n_cores = c(outer, inner)`) more robust, particularly in handling
+  error propagation, logging, and potential orphaned processes from
+  inner workers.
+- **Refactor Density Interface**: The `ModelParameters` struct currently
+  uses the Adapter Pattern (via the `to_density_vector` method) to
+  communicate with the legacy density functions. This interface should
+  be refactored so the density functions can accept the
+  `ModelParameters` struct directly.
+- **CI/CD Unit Tests**: A minimal `testthat` suite has been added to
+  verify the core build and Cpp linking. This initial setup should be
+  expanded by adding more tests to validate all the different
+  functionalities of the package (*pre-processing, density functions,
+  …*).
 
 ## References
 

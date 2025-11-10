@@ -79,7 +79,7 @@
 </h2>
 <p>This branch features a new architecture designed to be more modular, efficient, and maintainable. It separates the R-side user interface from the Cpp backend and isolates helper functions into distinct utility submodules.</p>
 <div class="float">
-<img src="assets/package_structure.svg" alt="Alt text"><div class="figcaption">Alt text</div>
+<img src="reference/figures/package_structure.svg" alt="Package Structure"><div class="figcaption">Package Structure</div>
 </div>
 <div class="section level3">
 <h3 id="r-module-the-orchestrator">R Module (the Orchestrator)<a class="anchor" aria-label="anchor" href="#r-module-the-orchestrator"></a>
@@ -109,7 +109,9 @@
 <li>
 <code>utils_get_model_params.R</code>: Sorts parameters into fixed, estimated, and manipulated categories and sets model-specific defaults.</li>
 <li>
-<code>utils_build_model_matrix.R</code>: Uses <code><a href="https://rdrr.io/r/stats/model.matrix.html" class="external-link">stats::model.matrix</a></code> to build the predictor matrix and creates the index mappings for Cpp. <code>utils_setup_jobs.R</code> &amp; <code>utils_setup_parallel.R</code>: Configure the future parallel backend (flat or nested) and prepare the list of all model-subject jobs.</li>
+<code>utils_build_model_matrix.R</code>: Uses <code><a href="https://rdrr.io/r/stats/model.matrix.html" class="external-link">stats::model.matrix</a></code> to build the predictor matrix and creates the index mappings for Cpp.</li>
+<li>
+<code>utils_setup_jobs.R</code> &amp; <code>utils_setup_parallel.R</code>: Configure the future parallel backend (flat or nested) and prepare the list of all model-subject jobs.</li>
 <li>
 <code>utils_fill_thresholds.R</code>: A post-processing helper to fill in un-fittable confidence thresholds if a subject did not use all ratings.</li>
 </ul>
@@ -119,18 +121,63 @@
 <div class="section level3">
 <h3 id="cpp-module-the-backend">Cpp Module (the Backend)<a class="anchor" aria-label="anchor" href="#cpp-module-the-backend"></a>
 </h3>
-<p>This module, written in Cpp with Rcpp, handles all high-performance computation. It is designed to be a “state-aware” backend that receives all necessary data from R in a single DTO. - <strong>Entry Points</strong>: <code>grid_search_worker</code> and <code>nlopt_optimizer</code> are the two Rcpp exported functions called directly by R. They receive the DTO and manage the Cpp-side optimization process. - <strong>Optimization Logic</strong>: <code>neg_loglikelihood</code> is the core objective function. It iterates over all trials, calling <code>get_trial_params</code> to get the parameters for that specific trial and summing the log-likelihood from the <code>densities</code>. - <strong>Cpp Utils Submodule</strong>: - <code>optimization_context.hpp/.cpp</code>: Defines the <code>OptimizationContext</code> class, the main Data Transfer Object (DTO) from R. It holds all constant data (model matrix, dependent variables, parameter mappings) for the entire fit. - <code>ModelParameters</code>: A Cpp struct defined in <code>optimization_context.hpp</code> that holds the parameters for a single trial after transformations. - <code>logger.hpp</code>: A utility that bridges Cpp logging calls back to the R <code>logger</code> package, allowing Cpp code to log to the same file as R with the same log layout. - <code>validate_params.h</code>: A Cpp-side helper for validating parameter sets before they are used by the density functions. - <strong>Densities</strong>: The core <code>g_minus_WEVmu</code> density function (and others, e.g., <code>density_2DSD</code>) are called by <code>neg_loglikelihood</code>. - <strong>NLopt Integration</strong>: The Cpp optimizer uses the <code>nloptr</code> R package to link to the C API headers for the NLopt library. This avoids needing to bundle the entire NLopt library with this package. (see a similar example <a href="https://github.com/eddelbuettel/rcppnloptexample" class="external-link">here</a>).</p>
+<p>This module, written in Cpp with Rcpp, handles all high-performance computation. It is designed to be a “state-aware” backend that receives all necessary data from R in a single DTO.</p>
+<ul>
+<li>
+<strong>Entry Points</strong>: <code>grid_search_worker</code> and <code>nlopt_optimizer</code> are the two Rcpp exported functions called directly by R. They receive the DTO and manage the Cpp-side optimization process.</li>
+<li>
+<strong>Optimization Logic</strong>: <code>neg_loglikelihood</code> is the core objective function. It iterates over all trials, calling <code>get_trial_params</code> to get the parameters for that specific trial and summing the log-likelihood from the <code>densities</code>.</li>
+<li>
+<strong>Cpp Utils Submodule</strong>:
+<ul>
+<li>
+<code>optimization_context.hpp/.cpp</code>: Defines the <code>OptimizationContext</code> class, the main Data Transfer Object (DTO) from R. It holds all constant data (model matrix, dependent variables, parameter mappings) for the entire fit.</li>
+<li>
+<code>ModelParameters</code>: A Cpp struct defined in <code>optimization_context.hpp</code> that holds the parameters for a single trial after transformations.</li>
+<li>
+<code>logger.hpp</code>: A utility that bridges Cpp logging calls back to the R <code>logger</code> package, allowing Cpp code to log to the same file as R with the same log layout.</li>
+<li>
+<code>validate_params.h</code>: A Cpp-side helper for validating parameter sets before they are used by the density functions.</li>
+</ul>
+</li>
+<li>
+<strong>Densities</strong>: The core <code>g_minus_WEVmu</code> density function (and others, e.g., <code>density_2DSD</code>) are called by <code>neg_loglikelihood</code>.</li>
+<li>
+<strong>NLopt Integration</strong>: The Cpp optimizer uses the <code>nloptr</code> R package to link to the C API headers for the NLopt library. This avoids needing to bundle the entire NLopt library with this package. (see a similar example <a href="https://github.com/eddelbuettel/rcppnloptexample" class="external-link">here</a>).</li>
+</ul>
 </div>
 </div>
 <div class="section level2">
 <h2 id="collaboration">Collaboration<a class="anchor" aria-label="anchor" href="#collaboration"></a>
 </h2>
-<p>To improve the onboarding and development workflow for collaborators: - <strong>Continuous Integration</strong>: The package includes a GitHub Action workflow (<code>.github/workflows/R-CMD-check.yaml</code>) that automatically runs <code>R CMD check</code> on Windows, macOS, and Ubuntu for every push and pull request to the main and integration branches. This process now incorporates the initial setup for a <code>testthat</code> suite, which runs a simple sanity check to verify that the package properly builds and links its Cpp backend. This enhances the <strong>CI</strong> by confirming the package is not only installable but also correctly compiled. - <strong>IDE Setup</strong>: The <code>scripts/configure_clangd.R</code> script generates a <code>.clangd</code> file. This provides Cpp auto-completion, linting, and error-checking in IDEs, making Cpp development much easier.</p>
+<p>To improve the onboarding and development workflow for collaborators:</p>
+<ul>
+<li>
+<strong>Continuous Integration</strong>: The package includes a GitHub Action workflow (<code>.github/workflows/R-CMD-check.yaml</code>) that automatically runs <code>R CMD check</code> on Windows, macOS, and Ubuntu for every push and pull request to the main and integration branches. This process now incorporates the initial setup for a <code>testthat</code> suite, which runs a simple sanity check to verify that the package properly builds and links its Cpp backend. This enhances the <strong>CI</strong> by confirming the package is not only installable but also correctly compiled.</li>
+<li>
+<strong>IDE Setup</strong>: The <code>scripts/configure_clangd.R</code> script generates a <code>.clangd</code> file. This provides Cpp auto-completion, linting, and error-checking in IDEs, making Cpp development much easier.</li>
+</ul>
 </div>
 <div class="section level2">
 <h2 id="open-issues">Open Issues<a class="anchor" aria-label="anchor" href="#open-issues"></a>
 </h2>
-<p>This rework focused on building a robust, formula-based architecture for the <strong>dynaViTE</strong>/<strong>dynWEV</strong>/<strong>2DSD</strong> model family. The following items are key next steps: - <strong>Extend to Race Models</strong>: Integrate the existing Race Models (<strong>IRM</strong>/<strong>PCRM</strong>) density functions with the C++ <code>OptimizationContext</code> and update the R-side <code>fit_rtconf_formula_dispatcher</code> to support them. - <strong>Implement More Optimizers</strong>: The <code>nlopt_optimizer.cpp</code> file only supports <strong>Nelder-Mead</strong> and <strong>bobyqa</strong>. This should be extended to support other optimization algorithms (e.g., <strong>L-BFGS-B</strong>). - <strong>Optimize Grid Search</strong>: Refine the initial grid search strategy. The current implementation uses a simple random search (<code>rnorm</code>) to find starting points. This could be improved by for example incorporating domain-specific parameter priors to cover the parameter space more efficiently. - <strong>End-to-End Benchmarking</strong>: Enhance the <code>fit_rtconf_models_formula</code> wrapper to systematically track and report the wall-clock time for each model-subject fit, providing a simple framework for performance profiling. - <strong>Improve Nested Parallelism</strong>: Make the nested parallel plan (<code>n_cores = c(outer, inner)</code>) more robust, particularly in handling error propagation, logging, and potential orphaned processes from inner workers. - <strong>Refactor Density Interface</strong>: The <code>ModelParameters</code> struct currently uses the Adapter Pattern (via the <code>to_density_vector</code> method) to communicate with the legacy density functions. This interface should be refactored so the density functions can accept the <code>ModelParameters</code> struct directly. - <strong>CI/CD Unit Tests</strong>: A minimal <code>testthat</code> suite has been added to verify the core build and Cpp linking. This initial setup should be expanded by adding more tests to validate all the different functionalities of the package (<em>pre-processing, density functions, …</em>).</p>
+<p>This rework focused on building a robust, formula-based architecture for the <strong>dynaViTE</strong>/<strong>dynWEV</strong>/<strong>2DSD</strong> model family. The following items are key next steps:</p>
+<ul>
+<li>
+<strong>Extend to Race Models</strong>: Integrate the existing Race Models (<strong>IRM</strong>/<strong>PCRM</strong>) density functions with the C++ <code>OptimizationContext</code> and update the R-side <code>fit_rtconf_formula_dispatcher</code> to support them.</li>
+<li>
+<strong>Implement More Optimizers</strong>: The <code>nlopt_optimizer.cpp</code> file only supports <strong>Nelder-Mead</strong> and <strong>bobyqa</strong>. This should be extended to support other optimization algorithms (e.g., <strong>L-BFGS-B</strong>).</li>
+<li>
+<strong>Optimize Grid Search</strong>: Refine the initial grid search strategy. The current implementation uses a simple random search (<code>rnorm</code>) to find starting points. This could be improved by for example incorporating domain-specific parameter priors to cover the parameter space more efficiently.</li>
+<li>
+<strong>End-to-End Benchmarking</strong>: Enhance the <code>fit_rtconf_models_formula</code> wrapper to systematically track and report the wall-clock time for each model-subject fit, providing a simple framework for performance profiling.</li>
+<li>
+<strong>Improve Nested Parallelism</strong>: Make the nested parallel plan (<code>n_cores = c(outer, inner)</code>) more robust, particularly in handling error propagation, logging, and potential orphaned processes from inner workers.</li>
+<li>
+<strong>Refactor Density Interface</strong>: The <code>ModelParameters</code> struct currently uses the Adapter Pattern (via the <code>to_density_vector</code> method) to communicate with the legacy density functions. This interface should be refactored so the density functions can accept the <code>ModelParameters</code> struct directly.</li>
+<li>
+<strong>CI/CD Unit Tests</strong>: A minimal <code>testthat</code> suite has been added to verify the core build and Cpp linking. This initial setup should be expanded by adding more tests to validate all the different functionalities of the package (<em>pre-processing, density functions, …</em>).</li>
+</ul>
 </div>
 <div class="section level2">
 <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>
