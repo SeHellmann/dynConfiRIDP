@@ -4,9 +4,10 @@
 .RData
 .Ruserdata
 
-# generated package files (by devtools::document())
-/man/
+# generated package files (by devtools::document(), etc.)
+/man/*.rd
 /NAMESPACE
+docs
 
 # C++ object files
 *.o
@@ -20,4 +21,3 @@
 .DS_Store
 .vscode/
 .clangd
-docs
